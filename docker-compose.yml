@@ -1,0 +1,298 @@
+version: '3.8'
+
+# ════════════════════════════════════════════════════════════════════════════
+# AICC — AI Command Center | Docker Compose
+# Services: Postgres, Supabase Stack, n8n, FastAPI, React Frontend
+# Start: docker compose up -d
+# Stop:  docker compose down
+# Logs:  docker compose logs -f [service-name]
+# ════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ─── POSTGRES DATABASE ──────────────────────────────────────────────────────
+  postgres:
+    image: supabase/postgres:17.6.1.136
+    container_name: aicc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: supabase_admin
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-aicc.sql:/docker-entrypoint-initdb.d/zz-aicc-init.sql
+      - ./scripts/role-passwords.sql:/etc/postgresql.schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aicc_network
+
+  # ─── SUPABASE: API GATEWAY (Kong) ───────────────────────────────────────────
+  kong:
+    image: kong/kong:3.9.1
+    container_name: aicc_kong
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,pre-function
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    volumes:
+      - ./scripts/kong.yml:/var/lib/kong/kong.yml:ro
+    depends_on:
+      - auth
+      - rest
+      - realtime
+      - storage
+    networks:
+      - aicc_network
+
+  # ─── SUPABASE: AUTH (GoTrue) ────────────────────────────────────────────────
+  auth:
+    image: supabase/gotrue:v2.189.0
+    container_name: aicc_auth
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3001}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_SMTP_HOST: ${SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-587}
+      GOTRUE_SMTP_USER: ${SMTP_USER}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aicc_network
+
+  # ─── SUPABASE: REST API (PostgREST) ─────────────────────────────────────────
+  rest:
+    image: postgrest/postgrest:v14.12
+    container_name: aicc_rest
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aicc_network
+
+  # ─── SUPABASE: REALTIME ──────────────────────────────────────────────────────
+  realtime:
+    image: supabase/realtime:v2.102.3
+    container_name: aicc_realtime
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET}
+      METRICS_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      APP_NAME: realtime
+      RLIMIT_NOFILE: "10000"
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+      DISABLE_HEALTHCHECK_LOGGING: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aicc_network
+
+  # ─── SUPABASE: STORAGE ───────────────────────────────────────────────────────
+  storage:
+    image: supabase/storage-api:v1.60.4
+    container_name: aicc_storage
+    restart: unless-stopped
+    environment:
+      ANON_KEY: ${SUPABASE_ANON_KEY}
+      SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+    volumes:
+      - storage_data:/var/lib/storage
+    depends_on:
+      rest:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - aicc_network
+
+  # ─── SUPABASE: DB META ───────────────────────────────────────────────────────
+  meta:
+    image: supabase/postgres-meta:v0.96.6
+    container_name: aicc_meta
+    restart: unless-stopped
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: postgres
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aicc_network
+
+  # ─── SUPABASE: STUDIO (Admin UI) ─────────────────────────────────────────────
+  studio:
+    image: supabase/studio:2026.06.03-sha-0bca601
+    container_name: aicc_studio
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      SUPABASE_URL: http://kong:8000
+      STUDIO_PG_META_URL: http://meta:8080
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://' + require('os').hostname() + ':3000/api/platform/profile').then(r => { if (r.status !== 200) { process.exit(1) } }).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - kong
+      - meta
+    networks:
+      - aicc_network
+
+  # ─── N8N WORKFLOW AUTOMATION ─────────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: aicc_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: postgres
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
+      GENERIC_TIMEZONE: America/Chicago
+      N8N_METRICS: "true"
+      N8N_LOG_LEVEL: info
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./backend/workflows:/workflows
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aicc_network
+
+  # ─── FASTAPI BACKEND ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aicc_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/aicc
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      BRAND_NAME: ${BRAND_NAME}
+      AGENT_NAME: ${AGENT_NAME}
+      TIMEZONE: ${TIMEZONE:-America/Chicago}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "python run_migrations.py && uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload"
+    networks:
+      - aicc_network
+
+  # ─── REACT FRONTEND (Dev Server) ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: aicc_frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      VITE_API_URL: http://localhost:8080
+      VITE_SUPABASE_URL: ${SUPABASE_URL}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      VITE_BRAND_NAME: ${BRAND_NAME}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0 --port 3001
+    networks:
+      - aicc_network
+
+# ─── VOLUMES ───────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  n8n_data:
+    driver: local
+  storage_data:
+    driver: local
+
+# ─── NETWORKS ──────────────────────────────────────────────────────────────────
+networks:
+  aicc_network:
+    driver: bridge
+    name: aicc_network
