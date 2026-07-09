@@ -1,65 +1,64 @@
 # AICC TODO
 
-**Phase:** 1 — Foundation Build  
-**Updated:** 2026-06-26
+**Phase:** 3 — Real Estate Integration (finishing up)
+**Updated:** 2026-07-06
 
 ---
 
-## Doing Now
+## 🔥 Unblocked Right Now — Do These Next
 
-- [ ] Fill in `.env` with real API keys (start with ANTHROPIC_API_KEY and POSTGRES_PASSWORD)
-- [ ] Run `docker compose up -d` and verify all services start
-
----
-
-## Phase 1 Backlog
-
-### Repository
-- [ ] `git init` in `aicc/` folder
-- [ ] Create GitHub private repo `aicc`
-- [ ] Push initial commit
-- [ ] Create `.gitignore`
-- [ ] Set up branch protection on `main`
-
-### Infrastructure
-- [ ] Confirm all Docker services are healthy: `docker compose ps`
-- [ ] Access n8n at http://localhost:5678 and create admin account
-- [ ] Access Supabase Studio at http://localhost:3000
-- [ ] Generate secrets: run `scripts/generate-secrets.sh`
-
-### Database
-- [ ] Write `backend/memory/migrations/001_core_schema.sql`
-- [ ] Run migrations against local Supabase Postgres
-- [ ] Verify tables visible in Supabase Studio
-
-### Backend
-- [ ] Write `backend/api/main.py` (FastAPI app)
-- [ ] Write `backend/requirements.txt`
-- [ ] Write `backend/Dockerfile`
-- [ ] Test: `GET http://localhost:8080/health` returns 200
-
-### Frontend
-- [ ] Initialize Vite React app in `frontend/`
-- [ ] Install Tailwind CSS + configure brand colors
-- [ ] Install shadcn/ui
-- [ ] Create `frontend/Dockerfile.dev`
-- [ ] Test: http://localhost:3001 loads with AICC branding
+- [ ] **Add Twilio credentials to .env** — TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, KAREESA_PHONE
+- [ ] **Test CEO morning briefing SMS** — Twilio account now active; briefing is built, just needs live credentials
+- [ ] **Wire Twilio SMS milestone alerts** — transaction status changes → SMS (Phase 3.4 — built, pending Twilio)
+- [ ] **Deploy website to Netlify** — footer has IABS, brokerage info, EHO, correct email. Copy IABS PDF first:
+      rename your PDF → `Caresir_IABS_2026_KWP.pdf` → drop into `locked-in-homes-site/` → deploy folder
 
 ---
 
-## Upcoming (Phase 2)
+## Phase 3 — Remaining (3 items)
 
-- [ ] Build CEO Agent with morning briefing
-- [ ] Build Project Manager Agent
-- [ ] Wire agents to Supabase memory layer
-- [ ] Agent chat UI in dashboard
+- [ ] **HAR MLS lead intake n8n workflow** — auto-capture leads from saved searches → Supabase leads table
+- [ ] **Twilio SMS milestone alerts** — 🔓 unblocked now (see above)
+- [ ] **Lone Wolf API read** — ⏳ still blocked, waiting on API access from Lone Wolf
+
+---
+
+## Phase 4 — GymnastDiva Content Engine (next phase)
+
+- [ ] Content queue table in Supabase
+- [ ] Meet schedule Jan–May 2027 synced from Google Calendar
+- [ ] Content Director Agent fully activated (scaffolded, needs system prompt + captions wired)
+- [ ] Caption & hashtag generation for Iyah's content
+- [ ] Caption review queue in dashboard
+- [ ] Calendly webhook → booking confirmation workflow
+- [ ] Instagram Graph API integration
+- [ ] TikTok API integration
+- [ ] YouTube Data API integration
+
+---
+
+## Phase 4 — RE Content Engine (parallel to GymnastDiva)
+
+- [ ] **neighborhood-video-scripts.md** — create full on-camera scripts for all 4 neighborhoods
+- [ ] RE Content Agent (`re_content`) fully activated — context files built, needs wiring to dashboard
+- [ ] Weekly 5-post KWP SCORE plan generation
+- [ ] Filming prep checklist generator per neighborhood
+
+---
+
+## Blocked (waiting on external access)
+
+- [ ] Lone Wolf Transactions API — waiting for API credentials from Lone Wolf
+- [ ] KW Command API — deferred (cost)
 
 ---
 
 ## Notes
 
-- Broker Jennifer must approve any DocuSign documents before sending to clients
-- Sharon Traylor is active lead — land buyer, referred by Shay Mims
-- 4707 Cairnvillage St Houston TX 77084 listing is on hold (probate)
-- Meet schedule for GymnastDiva Iyah (Nastia) runs January–May 2027
-- All scheduled jobs use America/Chicago timezone
+- Twilio account: ACTIVE as of 2026-07-06 — unblocks CEO briefing SMS + milestone alerts
+- Broker Jennifer must approve any agreements before they are executed in Lone Wolf
+- Sharon Traylor: active land buyer lead, 6-step sequence loaded, referred by Shay Mims
+- 4707 Cairnvillage St Houston TX 77084: probate listing, on hold (sibling estate dispute)
+- Iyah meet season: January–May 2027
+- Website: LIVE at lockedinhomes.com — needs redeploy with footer + IABS updates
+- All scheduled jobs: America/Chicago timezone

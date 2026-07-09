@@ -1,7 +1,7 @@
 # AICC Project Roadmap
 
 **Owner:** Kareesa Gonzales | **Brand:** Locked In with Kareesa  
-**Started:** 2026-06-26 | **Status:** Phase 2 — AI Employees (Real Estate Assistant first)
+**Started:** 2026-06-26 | **Status:** Phase 3 complete + Phase 4 largely complete
 
 ---
 
@@ -10,10 +10,10 @@
 | Phase | Name | Status | Target |
 |---|---|---|---|
 | 1 | Foundation Build | ✅ COMPLETE | Week 1-2 |
-| 2 | AI Employees Core | 🔄 IN PROGRESS | Week 3-4 |
-| 3 | Real Estate Integration | QUEUED | Week 5-6 |
-| 4 | GymnastDiva Content Engine | QUEUED | Week 7 |
-| 5 | Agency + FBA Automation | QUEUED | Week 8-9 |
+| 2 | AI Employees Core | ✅ COMPLETE | Week 3-4 |
+| 3 | Real Estate Integration | ✅ COMPLETE (pending APIs) | Week 5-6 |
+| 4 | GymnastDiva Content Engine | ✅ LARGELY COMPLETE | Week 7 |
+| 5 | Agency + FBA Automation | 🔄 IN PROGRESS | Week 8-9 |
 | 6 | Full Dashboard + Polish | QUEUED | Week 10-11 |
 | 7 | Production Hardening | QUEUED | Week 12 |
 
@@ -81,47 +81,49 @@
 
 ---
 
-## PHASE 2 — AI Employees Core 🔄 IN PROGRESS
+## PHASE 2 — AI Employees Core ✅ COMPLETE
 
-**Started:** 2026-06-26  
+**Started:** 2026-06-26 | **Completed:** 2026-06-30  
 **Objective:** Build the AI employee agents with system prompts, memory access, and API endpoints. Real Estate Assistant is Priority #1 — active leads need attention now.
 
-### 2.1 Agent Architecture (build first — everything depends on this)
-- [ ] `backend/agents/base_agent.py` — Abstract base class
-- [ ] Agent interface: `think()`, `act()`, `remember()`, `report()`
-- [ ] Supabase memory layer: read/write agent state
-- [ ] Claude API client wrapper with retry, rate limiting, cost tracking
-- [ ] Agent registry — maps agent names to classes
+### 2.1 Agent Architecture ✅
+- [x] `backend/agents/base_agent.py` — Abstract base class
+- [x] Agent interface: `think()`, `remember()`, `recall()`, `report()`
+- [x] Supabase memory layer: read/write agent state
+- [x] Claude API client wrapper with retry (3 attempts, exponential backoff), token logging
+- [x] Agent registry — maps agent names to classes in `/api/routers/agents.py`
 
-### 2.2 Real Estate Assistant Agent ⭐ PRIORITY #1 (active leads now)
-- [ ] **System prompt** — KW Preferred Pearland agent, HAR MLS expertise, warm professional tone, always defers document execution to broker Jennifer via Lone Wolf Transactions
-- [ ] **Lead intake** — `POST /api/leads` — name, source, type (buyer/seller/investor), status, notes
-- [ ] **Lead record: Sharon Traylor** — land buyer, create profile in Supabase leads table
-- [ ] **Follow-up drafter** — "Follow up with [lead name]" → agent reads lead history, drafts personalized message (email or SMS)
-- [ ] **Lead status workflow** — New → Contacted → Nurturing → Under Contract → Closed / Dead
-- [ ] **HAR MLS integration** — query active listings matching buyer criteria, attach results to lead record
-- [ ] **Showing notes** — voice/text input → structured note saved to lead memory
-- [ ] **Listing status tracker** — 4707 Cairnvillage St Houston TX 77084 (probate, on hold) — auto-update from MLS
-- [ ] **n8n workflow: lead follow-up reminder** — no contact in 3 days → agent drafts follow-up → notify Kareesa for approval before sending
-- [ ] **Lone Wolf guard rail** — agent can draft agreements but NEVER executes in Lone Wolf; flags for Jennifer approval
-- [ ] **Memory** — stores each lead's preferences, pain points, timeline, prior conversations
+### 2.2 Real Estate Assistant Agent ✅
+- [x] **System prompt** — KW Preferred Pearland agent, warm professional tone, defers document execution to Jennifer via Lone Wolf Transactions
+- [x] **Lead intake** — `POST /api/leads` — name, source, type, status, notes
+- [x] **Lead record: Sharon Traylor** — land buyer, profile in Supabase, co_purchasers + property_criteria JSONB
+- [x] **Follow-up drafter** — agent reads lead history, drafts personalized text or email
+- [x] **Lead status workflow** — New → Contacted → Nurturing → Under Contract → Closed / Dead
+- [x] **6-step follow-up sequence** — Sharon Traylor onboarding seeded and confirmed working
+- [x] **Lone Wolf guard rail** — agent drafts agreements only, NEVER executes in Lone Wolf
+- [x] **Memory** — stores lead preferences, research briefs, sequence drafts per lead
+- [ ] **HAR MLS integration** — query active listings matching buyer criteria (Phase 3)
+- [ ] **Showing notes** — voice/text input → structured note saved to lead memory (Phase 3)
+- [x] **n8n workflow: lead follow-up reminder** — no contact in 3 days → agent drafts follow-up (`n8n/lead_followup_reminder.json` — import into n8n)
 
-### 2.3 CEO Agent (Priority #2)
-- [ ] System prompt: business performance, daily priorities, cross-business alerts
-- [ ] Morning briefing workflow: auto-runs at 7:00 AM CT
-- [ ] Reads: lead count, new emails, calendar today, task backlog, revenue MTD
-- [ ] Outputs: prioritized daily plan + push notification summary
-- [ ] Memory: decision log, preference learning
+### 2.3 CEO Agent ✅
+- [x] System prompt: business performance, daily priorities, cross-business alerts
+- [x] Morning briefing workflow: auto-runs at 7:00 AM CT via n8n Schedule Trigger
+- [x] Reads: active leads, overdue follow-ups, open tasks, active listings, sequence steps due
+- [x] Outputs: prioritized daily plan delivered via Twilio SMS (pending carrier approval)
+- [x] Memory: briefing stored in agent_memory after each run
+- [x] API endpoint: `POST /api/agents/ceo/briefing` — manually triggerable
 
 ### 2.4 Project Manager Agent
-- [ ] System prompt: task tracking, deadline detection, blocker alerts
-- [ ] Reads TODO.md + Supabase tasks table
-- [ ] Creates tasks from plain-English input
-- [ ] Weekly status report generation
-- [ ] Integrates with CEO Agent briefing
+- [x] System prompt: task tracking, deadline detection, blocker alerts
+- [x] Reads Supabase tasks table
+- [x] Creates tasks from plain-English input
+- [x] Weekly status report generation
+- [x] Integrates with CEO Agent briefing
 
 ### 2.5 Remaining Agents (scaffolded now, fully activated in Phases 3–5)
-- [ ] Content Director (Phase 4)
+- [x] Content Director — built and registered (Phase 4 complete)
+- [x] FBA Manager — built and registered (Phase 5 in progress)
 - [ ] Marketing Agent (Phase 4)
 - [ ] Research Agent (Phase 3)
 - [ ] Sales Agent (Phase 5)
@@ -131,30 +133,37 @@
 - [ ] SEO Agent (Phase 4)
 - [ ] Analytics Agent (Phase 6)
 
-### 2.6 Agent API Endpoints
-- [ ] `POST /api/agents/{agent_name}/chat` — send message, get response
-- [ ] `GET /api/agents/{agent_name}/memory` — agent's stored context
-- [ ] `GET /api/agents/status` — all agents health check
-- [ ] `POST /api/leads` — create/update lead record
-- [ ] `GET /api/leads` — lead list with filters (status, type, last contact)
-- [ ] `POST /api/agents/broadcast` — send to all agents simultaneously
+### 2.6 Agent API Endpoints ✅
+- [x] `POST /api/agents/{agent_name}/chat` — send message, get response
+- [x] `GET /api/agents/{agent_name}/memory/{key}` — agent's stored context
+- [x] `GET /api/agents/status` — all agents health check
+- [x] `POST /api/agents/ceo/briefing` — trigger CEO morning briefing
+- [x] `POST /api/leads` — create/update lead record
+- [x] `GET /api/leads` — lead list with filters
+- [x] `POST /api/agents/broadcast` — send to all agents simultaneously
 
-### 2.7 Frontend: Agent Offices + Lead View
-- [ ] Agent selector sidebar
-- [ ] Chat interface per agent (threaded conversation)
-- [ ] Agent status indicator (active/idle/processing)
-- [ ] Memory viewer panel
-- [ ] **Leads table** — name, type, status, last contact, quick action buttons
-- [ ] **Lead detail drawer** — full history, notes, agent chat scoped to that lead
-- [ ] **Quick action bar** — "Follow up", "Draft agreement", "Pull MLS comps"
+### 2.7 Frontend: Agent Offices + Lead View ✅
+- [x] Agent selector sidebar
+- [x] Chat interface per agent (threaded conversation)
+- [x] Agent status indicator (active/idle/processing)
+- [x] Memory viewer panel
+- [x] **Leads table** — name, type, status, last contact, quick action buttons + Add Lead modal
+- [x] **Lead detail drawer** — contact info, status badges, notes, AI draft quick actions
+- [x] **Quick action bar** — "Draft Text", "Draft Email", "Draft Agreement", lead agent chat
+- [x] **Real Estate page** — listings grid, transaction pipeline, draft queue, social content generator
+- [x] **Tasks page** — plain-English task creation, overdue alerts, complete button, weekly report
+- [x] **FBA page** — brand tracker, distributor manager, AI research, application email drafts
+- [x] **GymnastDiva page** — content queue, caption generator, meet schedule (Iyah Gonzales)
+- [x] App running at http://localhost:5174 (port changed from 3001 — Docker conflict resolved)
 
 **Phase 2 Success Criteria:**
-- Can type "follow up with Sharon Traylor" → Real Estate Assistant drafts a personalized message
-- Sharon Traylor lead profile visible in dashboard with full history
-- CEO Agent sends morning briefing at 7 AM CT
-- Can chat with any agent from the dashboard
-- Agent responses stored in Supabase with timestamps
-- No agent exceeds 10s response time
+- [x] Can type "follow up with Sharon Traylor" → Real Estate Assistant drafts a personalized message
+- [x] Sharon Traylor lead profile in Supabase with full sequence history
+- [x] CEO Agent sends morning briefing at 7 AM CT (SMS pending Twilio carrier approval)
+- [x] Agent responses stored in Supabase with timestamps
+- [x] No agent exceeds 10s response time
+- [x] Sharon Traylor lead profile visible in dashboard (Phase 2.7)
+- [x] Can chat with any agent from the dashboard (Phase 2.7)
 
 ---
 
@@ -162,60 +171,91 @@
 
 **Objective:** Full CRM for Locked In with Kareesa. Lead tracking, listing management, Lone Wolf Transactions integration, and HAR MLS data.
 
-### 3.1 Lead Management
-- [ ] Lead intake form (web + API endpoint)
-- [ ] Auto-capture leads from HAR MLS saved searches
-- [ ] Lead table in Supabase: name, source, status, last_contact, notes
-- [ ] Sharon Traylor (land buyer) — active lead profile
+### 3.1 Lead Management ✅
+- [x] Lead intake form (web + API endpoint)
+- [x] Lead table in Supabase: name, source, status, last_contact, notes
+- [x] Sharon Traylor (land buyer) — active lead profile with 6-step sequence
+- [ ] Auto-capture leads from HAR MLS saved searches (n8n workflow)
 - [ ] Lead scoring with Real Estate Assistant Agent
 
-### 3.2 Listing Management
-- [ ] Active listing: 4707 Cairnvillage St Houston TX 77084 (probate, on hold)
-- [ ] Listing status tracking: active / under contract / on hold / sold
-- [ ] Auto-pull MLS data via HAR API
-- [ ] Listing page in dashboard
+### 3.2 Listing Management ✅
+- [x] Active listing: 4707 Cairnvillage St Houston TX 77084 (probate, on hold) — seeded
+- [x] Listing status tracking: active / under contract / on hold / sold
+- [x] Listing page in dashboard with status controls
+- [x] Migration 003: enriched Cairnvillage with listing_type, full notes, client name
+- [ ] MLS data import (CSV upload or KW Command export)
 
-### 3.3 Lone Wolf Transactions Integration
-- [ ] AI drafts listing agreements and buyer agreements — text output only, stored in Supabase
-- [ ] Jennifer approval gate — AI NEVER executes documents in Lone Wolf directly
-- [ ] Lone Wolf API read integration — sync transaction status into Supabase
+### 3.3 Lone Wolf Transactions Integration ✅ (partially)
+- [x] AI drafts listing agreements and buyer agreements — text output only, stored in Supabase
+- [x] Jennifer approval gate — AI NEVER executes documents in Lone Wolf directly
+- [x] Draft review queue in dashboard — Jennifer clicks approve, then executes in Lone Wolf manually
+- [ ] Lone Wolf API read integration — sync transaction status into Supabase (waiting for API access)
 - [ ] Transaction status webhook → update Supabase transaction record
-- [ ] Draft review queue in dashboard — Jennifer clicks approve, then executes in Lone Wolf manually
 
-### 3.4 Transaction Tracking
-- [ ] Transaction timeline UI (offer → contract → closing)
-- [ ] Lone Wolf Transactions API integration (read-only first)
-- [ ] Milestone alerts via Twilio SMS + email
+> **TEST CASE — 4707 Cairnvillage St, Houston TX 77084**
+> Client: Nadine | Type: Probate listing | Status: On hold pending title clearance
+> Hold reason: Sibling dispute over estate title
+> Already loaded in Lone Wolf Transactions — use this transaction as the live smoke test
+> when the API integration is built. Verify status sync, hold flag, and milestone alerts.
 
-### 3.5 Real Estate Dashboard Page
-- [ ] Active leads table with status badges
-- [ ] Listings grid with photos (from Google Drive)
-- [ ] Transaction pipeline (kanban-style)
-- [ ] Quick action: "Draft follow-up to [lead name]"
+### 3.4 Transaction Tracking ✅ (frontend + backend built)
+- [x] Transaction pipeline UI (kanban — pending → offer → under contract → inspection → closing)
+- [x] Backend API: list, pipeline view, status update
+- [ ] Lone Wolf Transactions API integration (read-only first — waiting for API access)
+- [ ] Milestone alerts via Twilio SMS (pending carrier approval)
+
+### 3.5 Real Estate Dashboard Page ✅
+- [x] Listings grid with status badges and status controls
+- [x] Transaction pipeline (kanban-style, horizontally scrollable)
+- [x] Agreement draft queue with Jennifer approve button
+- [x] Social content generator (4 platforms, 8 content types, brand voice rules)
+
+**Phase 3 Remaining:**
+- [ ] HAR MLS lead intake n8n workflow (auto-capture from saved searches)
+- [ ] Twilio SMS milestone alerts (pending carrier A2P 10DLC approval)
+- [ ] Lone Wolf API read (pending API access from Lone Wolf)
 
 **Phase 3 Success Criteria:**
-- Sharon Traylor's lead profile visible in dashboard
-- Can type "follow up with Sharon" → Real Estate Agent drafts message
-- Agent drafts a listing or buyer agreement; Jennifer reviews in dashboard and executes it herself in Lone Wolf
-- Listing at 4707 Cairnvillage shows correct status
+- [x] Sharon Traylor's lead profile visible in dashboard
+- [x] Can type "follow up with Sharon" → Real Estate Agent drafts message
+- [x] Agent drafts a listing or buyer agreement; Jennifer reviews in dashboard and executes it herself in Lone Wolf
+- [x] Listing at 4707 Cairnvillage shows correct status
 
 ---
 
-## PHASE 4 — GymnastDiva Content Engine
+## PHASE 4 — GymnastDiva Content Engine ✅ LARGELY COMPLETE
 
-**Objective:** Full content automation for @LockedInWithKareesa and GymnastDiva Iyah across Instagram, TikTok, YouTube Shorts, and Facebook.
+**Objective:** Full content automation for GymnastDiva Iyah Gonzales across Instagram, TikTok, YouTube Shorts, and Facebook.
 
-### 4.1 Content Calendar
-- [ ] Content queue table in Supabase
-- [ ] Meet schedule Jan–May 2027 synced from Google Calendar
-- [ ] Content type taxonomy: highlight reel, skills breakdown, meet recap, motivational
-- [ ] Weekly content plan auto-generated by Content Director Agent
+### 4.1 Content Calendar ✅
+- [x] Content queue table in Supabase (content_queue)
+- [x] Meet schedule Jan–May 2027 — 12 meets seeded from Google Calendar (thegymnastdiva99@gmail.com)
+- [x] Content type taxonomy: highlight, skills, meet_recap, motivation, lesson_promo
+- [x] Weekly content plan auto-generated by Content Director Agent
+- [x] Athlete name corrected throughout: Iyah Gonzales
 
-### 4.2 Caption & Hashtag Generation
-- [ ] Content Director prompt: warm, authentic voice for young athlete brand
-- [ ] Hashtag sets by content type (skills, meets, motivation)
-- [ ] Auto-draft captions from video title + notes
-- [ ] Caption review queue in dashboard
+**2027 Meet Schedule (seeded 2026-07-08):**
+| Date | Meet | Location |
+|---|---|---|
+| Jan 7 | Rally in Valley | Glendale, AZ |
+| Jan 21 | Pikes Peak Cup | Colorado Springs, CO |
+| Jan 29 | Biles Invitational | Houston, TX |
+| Feb 4 | Metroplex Challenge | Ft. Worth, TX |
+| Feb 19 | WOGA Classic | Frisco, TX |
+| Feb 26 | Yellow Rose Invitational | Pearland, TX |
+| Mar 19 | Level 9/10 State | TBD |
+| Apr 2 | Level 7/8 State | TBD |
+| Apr 8 | Level 9/10 Regionals | Kansas City, KS |
+| Apr 16 | Level 6/7/8 Regionals | TBD |
+| May 7 | Level 9 Westerns | Galveston, TX |
+| May 13 | Level 10 Nationals | TBD |
+
+### 4.2 Caption & Hashtag Generation ✅
+- [x] Content Director Agent (backend/agents/content_director_agent.py)
+- [x] System prompt: warm authentic voice for young athlete brand, Iyah Gonzales
+- [x] Hashtag sets by content type (highlight, skills, meet_recap, motivation, lesson_promo)
+- [x] Auto-draft captions from video title + notes — all 4 platforms
+- [x] Caption review queue in dashboard
 
 ### 4.3 Platform Integrations
 - [ ] Instagram Graph API: draft + schedule posts
@@ -227,20 +267,20 @@
 - [ ] Calendly webhook → new booking → Content Director notified
 - [ ] Auto send confirmation + prep instructions to client
 
-### 4.5 GymnastDiva Dashboard Page
-- [ ] Content calendar view
-- [ ] Draft queue (approve / edit / schedule)
-- [ ] Meet schedule from Google Calendar
-- [ ] Platform post status (published / scheduled / draft)
+### 4.5 GymnastDiva Dashboard Page ✅
+- [x] Caption generator with platform tabs
+- [x] Content queue (draft / approved / published)
+- [x] Meet schedule tab with Add Meet modal and delete
+- [x] Disciplines: All, Floor, Trampoline, Rod Floor, Black Floor
 
 **Phase 4 Success Criteria:**
-- Content Director drafts captions for Nastia's videos from a short description
-- Meet schedule visible in dashboard
-- Calendly booking triggers confirmation workflow
+- [x] Content Director drafts captions for Iyah's videos from a short description
+- [x] Meet schedule visible in dashboard — 12 meets loaded
+- [ ] Calendly booking triggers confirmation workflow
 
 ---
 
-## PHASE 5 — Agency + FBA Automation
+## PHASE 5 — Agency + FBA Automation 🔄 IN PROGRESS
 
 **Objective:** Build the client acquisition and delivery system for the AI Automation Agency, and automate FBA inventory monitoring for scholarshipee.com.
 
@@ -256,16 +296,19 @@
 - [ ] n8n workflow library (reusable automations to sell)
 - [ ] Client reporting: auto-generate weekly performance PDF
 
-### 5.3 Amazon FBA (scholarshipee.com)
+### 5.3 Amazon FBA (scholarshipee.com) ✅ (partially)
+- [x] FBA Manager Agent built (backend/agents/fba_agent.py) — registered in Supabase
+- [x] FBA page in dashboard — brand tracker, distributor manager, AI research, application email drafts
+- [x] Agent stores brands/distributors in agent_memory (memory_type: "fba")
 - [ ] Amazon SP-API connection
 - [ ] Inventory level monitoring — alert if any SKU < reorder point
-- [ ] Distributor intake: Infinity Distribution, EN Distribution, Catalist, Faire
+- [ ] Distributor intake: Infinity Distribution, EN Distribution, Catalist, Faire (manual entry via dashboard for now)
 - [ ] Wholesale order tracker in Supabase
 - [ ] Finance Assistant: monthly P&L for FBA business
 
-### 5.4 Agency + FBA Dashboard Pages
+### 5.4 Agency + FBA Dashboard Pages ✅ (partially)
 - [ ] Agency pipeline (kanban: prospect / proposal / onboarding / active / retained)
-- [ ] FBA inventory table with reorder alerts
+- [x] FBA page live — brand tracker, distributor manager, AI research panel
 - [ ] Revenue by business unit (real estate, gymnastics lessons, agency, FBA)
 
 **Phase 5 Success Criteria:**
@@ -340,12 +383,39 @@
 | Decision | Choice | Reason |
 |---|---|---|
 | Default AI model | claude-sonnet-4-6 | Best balance of speed, cost, and capability |
-| Frontend port | 3001 | Avoids conflict with Supabase Studio on 3000 |
+| Frontend port | 5174 (changed from 3001) | Docker port conflict — Supabase Studio on 3000, n8n on 5678 |
 | Timezone | America/Chicago (CT) | All five businesses are Houston/Pearland-based |
-| FBA distributor tracking | Supabase table | Simple, queryable, no extra SaaS needed |
+| FBA distributor tracking | agent_memory (Supabase) | Simple, queryable, no extra SaaS needed |
 | SMS provider | Twilio | Best API, reliable delivery, easy n8n integration |
 | Doc storage | Google Drive | Already in use; native Google Workspace integration |
+| Meet schedule storage | agent_memory (key: gymnast_meets) | No dedicated table needed; ContentDirectorAgent manages reads/writes |
+| Python dev environment | C:\aicc-venv (venv) | Windows MAX_PATH limit exceeded by Twilio package paths |
+| Supabase DDL execution | docker exec aicc_postgres psql | Supabase Studio (localhost:3000) errors on multi-statement DDL |
+| GymnastDiva Google Calendar | thegymnastdiva99@gmail.com | Shared to cham4547@gmail.com for MCP access |
 
 ---
 
-*Last updated: 2026-06-26 | Phase 1 complete ✅ | Phase 2 in progress — building Real Estate Assistant first*
+## Content Assets Created
+
+| Asset | Location | Notes |
+|---|---|---|
+| Neighborhood video scripts | docs/neighborhood-video-scripts.md | 4 scripts: Rosharon, Iowa Colony, Manvel, Pearland |
+| Supplier vetting SOP | docs/supplier-vetting.md | FBA supplier research process |
+| Product research SOP | docs/product-research-agent.md | FBA product research process |
+
+---
+
+## Pending Items (next to build)
+
+- [ ] Twilio A2P 10DLC carrier approval (10–15 day review, submitted ~2026-07)
+- [ ] Buy Twilio phone number + update TWILIO_PHONE_NUMBER in .env
+- [ ] HAR MLS lead intake n8n workflow (auto-capture from saved searches)
+- [ ] Lone Wolf API read integration (waiting for API access)
+- [ ] Platform API integrations: Instagram, TikTok, YouTube, Facebook
+- [ ] Calendly webhook → Content Director notification
+- [ ] Update TBD venues in meet schedule when announced
+- [ ] AI Agency CRM (Phase 5.1–5.2)
+
+---
+
+*Last updated: 2026-07-08 | Phase 3 complete | Phase 4 largely complete | Phase 5 in progress*
