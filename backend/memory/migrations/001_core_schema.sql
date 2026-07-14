@@ -21,7 +21,8 @@ INSERT INTO agents (name, display_name, description) VALUES
     ('ceo', 'CEO Agent', 'Daily priorities, business performance, strategic decisions'),
     ('project_manager', 'Project Manager', 'Task assignment, progress tracking, deadline alerts'),
     ('real_estate', 'Real Estate Assistant', 'Leads, CRM, emails, texts, transaction tracking'),
-    ('content_director', 'Content Director', 'GymnastDiva content, captions, hashtags, scheduling'),
+    ('re_content', 'RE Content Agent', 'Locked In with Kareesa content: neighborhood tours, market education, KWP SCORE, funnel CTAs'),
+    ('content_director', 'Content Director', 'GymnastDiva Iyah content, captions, hashtags, scheduling'),
     ('marketing', 'Marketing Agent', 'Social media, ad copy, email campaigns, branding'),
     ('research', 'Research Agent', 'Prospect research, market analysis, competitor intel'),
     ('sales', 'Sales Agent', 'Proposals, follow-ups, pipeline for AI Agency clients'),
@@ -126,7 +127,7 @@ CREATE TABLE IF NOT EXISTS content_queue (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     platform TEXT NOT NULL CHECK (platform IN ('instagram', 'tiktok', 'youtube_shorts', 'facebook', 'all')),
     content_type TEXT NOT NULL,  -- 'highlight', 'skills', 'meet_recap', 'motivation', 'lesson_promo'
-    athlete_name TEXT DEFAULT 'Nastia',
+    athlete_name TEXT DEFAULT 'Iyah',
     title TEXT,
     caption TEXT,
     hashtags TEXT[],

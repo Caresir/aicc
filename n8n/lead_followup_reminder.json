@@ -1,0 +1,147 @@
+{
+  "name": "Lead Follow-Up Reminder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8080/api/leads",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Get All Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;\nconst now = Date.now();\n\nconst leads = $input.all().map(item => item.json);\n\nconst stale = leads.filter(lead => {\n  if (['closed', 'lost'].includes(lead.status)) return false;\n  if (!lead.last_contact_at) return true;\n  return (now - new Date(lead.last_contact_at).getTime()) >= THREE_DAYS_MS;\n});\n\nif (stale.length === 0) {\n  return [{ json: { skip: true, message: 'All leads contacted within 3 days' } }];\n}\n\nreturn stale.map(lead => ({ json: lead }));"
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Filter Stale Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-001",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Has Stale Leads?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/agents/real_estate/chat",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "=Draft a follow-up text and email for {{ $json.first_name }} {{ $json.last_name }}. Lead type: {{ $json.lead_type || 'buyer' }}. Status: {{ $json.status }}. Notes: {{ $json.notes || 'none' }}. Last contact: {{ $json.last_contact_at || 'never contacted' }}. This is a 3-day check-in reminder. Make it feel personal and warm, not automated."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Draft Follow-Up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/tasks",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "request",
+              "value": "=Review and send follow-up draft for {{ $('Filter Stale Leads').item.json.first_name }} {{ $('Filter Stale Leads').item.json.last_name }} no contact in 3 plus days. Priority high real_estate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0006-4000-8000-000000000006",
+      "name": "Create Reminder Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 220]
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [{ "node": "Get All Leads", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get All Leads": {
+      "main": [
+        [{ "node": "Filter Stale Leads", "type": "main", "index": 0 }]
+      ]
+    },
+    "Filter Stale Leads": {
+      "main": [
+        [{ "node": "Has Stale Leads?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Stale Leads?": {
+      "main": [
+        [{ "node": "Draft Follow-Up", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Draft Follow-Up": {
+      "main": [
+        [{ "node": "Create Reminder Task", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "tags": []
+}

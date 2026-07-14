@@ -1,0 +1,242 @@
+{
+  "name": "Yahoo Inbox Cleanup",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * *"
+            }
+          ]
+        }
+      },
+      "id": "yic-0001-4000-8000-000000000001",
+      "name": "Daily 9am CT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 200,
+        "filters": {
+          "q": "to:caresir@yahoo.com older_than:30d has:unsubscribe"
+        },
+        "options": {
+          "format": "metadata",
+          "metadataHeaders": ["From", "Subject", "Date"]
+        }
+      },
+      "id": "yic-0002-4000-8000-000000000002",
+      "name": "Get Delete Candidates",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [440, 400],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail - cham4547@gmail.com"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Safety net: never delete financial or important emails\nconst SAFE_SUBJECTS = [\n  'statement', 'invoice', 'receipt', 'payment received', 'payment confirmation',\n  'tax document', 'tax form', '1099', 'w-2', 'insurance', 'medical', 'appointment',\n  'verification', 'security alert', 'password', 'action required', 'court',\n  'legal notice', 'your account has', 'account update'\n];\nconst SAFE_DOMAINS = [\n  'irs.gov', 'ssa.gov', 'bankofamerica', 'chase.com', 'wellsfargo',\n  'paypal.com', 'venmo.com', 'usaa.com', 'capitalone', 'discover.com',\n  'txdmv.gov', 'hcad.org', 'amex.com', 'americanexpress.com'\n];\n\nconst items = $input.all().filter(item => {\n  const headers = item.json.payload?.headers || [];\n  const getH = n => (headers.find(h => h.name.toLowerCase() === n.toLowerCase()) || {}).value || '';\n  const from = getH('From').toLowerCase();\n  const subject = getH('Subject').toLowerCase();\n  const isSafe = SAFE_SUBJECTS.some(s => subject.includes(s))\n               || SAFE_DOMAINS.some(d => from.includes(d));\n  return !isSafe;\n});\n\n// Store count and preview in static data for the summary node\nconst sd = $getWorkflowStaticData('global');\nsd.deleteCount = items.length;\nsd.deleteList = items.slice(0, 20).map(item => {\n  const headers = item.json.payload?.headers || [];\n  const getH = n => (headers.find(h => h.name.toLowerCase() === n.toLowerCase()) || {}).value || '';\n  return { from: getH('From'), subject: getH('Subject') };\n});\n\nreturn items;"
+      },
+      "id": "yic-0003-4000-8000-000000000003",
+      "name": "Filter + Store Delete Count",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "id": "yic-0004-4000-8000-000000000004",
+      "name": "Loop Delete Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [920, 400]
+    },
+
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "delete",
+        "messageId": "={{ $json.id }}"
+      },
+      "id": "yic-0005-4000-8000-000000000005",
+      "name": "Trash Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1160, 240],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail - cham4547@gmail.com"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 200,
+        "filters": {
+          "q": "to:caresir@yahoo.com newer_than:30d has:unsubscribe -is:important"
+        },
+        "options": {
+          "format": "metadata",
+          "metadataHeaders": ["From", "Subject", "Date"]
+        }
+      },
+      "id": "yic-0006-4000-8000-000000000006",
+      "name": "Get Archive Candidates",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1160, 400],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail - cham4547@gmail.com"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const SAFE_SUBJECTS = [\n  'statement', 'invoice', 'receipt', 'payment received', 'payment confirmation',\n  'tax document', 'tax form', '1099', 'w-2', 'insurance', 'medical', 'appointment',\n  'verification', 'security alert', 'password', 'action required', 'court',\n  'legal notice', 'your account has', 'account update'\n];\nconst SAFE_DOMAINS = [\n  'irs.gov', 'ssa.gov', 'bankofamerica', 'chase.com', 'wellsfargo',\n  'paypal.com', 'venmo.com', 'usaa.com', 'capitalone', 'discover.com',\n  'txdmv.gov', 'hcad.org', 'amex.com', 'americanexpress.com'\n];\n\nconst items = $input.all().filter(item => {\n  const headers = item.json.payload?.headers || [];\n  const getH = n => (headers.find(h => h.name.toLowerCase() === n.toLowerCase()) || {}).value || '';\n  const from = getH('From').toLowerCase();\n  const subject = getH('Subject').toLowerCase();\n  const isSafe = SAFE_SUBJECTS.some(s => subject.includes(s))\n               || SAFE_DOMAINS.some(d => from.includes(d));\n  return !isSafe;\n});\n\nconst sd = $getWorkflowStaticData('global');\nsd.archiveCount = items.length;\nsd.archiveList = items.slice(0, 20).map(item => {\n  const headers = item.json.payload?.headers || [];\n  const getH = n => (headers.find(h => h.name.toLowerCase() === n.toLowerCase()) || {}).value || '';\n  return { from: getH('From'), subject: getH('Subject') };\n});\n\nreturn items;"
+      },
+      "id": "yic-0007-4000-8000-000000000007",
+      "name": "Filter + Store Archive Count",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, 400]
+    },
+
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "id": "yic-0008-4000-8000-000000000008",
+      "name": "Loop Archive Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1640, 400]
+    },
+
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "removeLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": ["INBOX"]
+      },
+      "id": "yic-0009-4000-8000-000000000009",
+      "name": "Archive Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1880, 240],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail - cham4547@gmail.com"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst deleted = sd.deleteCount || 0;\nconst archived = sd.archiveCount || 0;\nconst deletedList = sd.deleteList || [];\nconst archivedList = sd.archiveList || [];\n\n// Clear for next run\nsd.deleteCount = 0;\nsd.archiveCount = 0;\nsd.deleteList = [];\nsd.archiveList = [];\n\nconst today = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\n\nlet body = `Hi Kareesa,\\n\\nYour daily Yahoo inbox cleanup finished. Here is what was done on ${today}.\\n\\n`;\n\nbody += `SUMMARY\\n`;\nbody += `-------\\n`;\nbody += `Moved to Trash (promo emails 30+ days old): ${deleted}\\n`;\nbody += `Archived (recent promo emails):             ${archived}\\n`;\nbody += `Total cleaned: ${deleted + archived}\\n\\n`;\n\nif (deleted === 0 && archived === 0) {\n  body += `Nothing to clean today. Your Yahoo inbox is already tidy.\\n\\n`;\n}\n\nif (deletedList.length > 0) {\n  body += `MOVED TO TRASH\\n`;\n  body += `--------------\\n`;\n  deletedList.forEach(e => {\n    const from = (e.from || '').substring(0, 38);\n    const subj = (e.subject || '').substring(0, 48);\n    body += `  ${from.padEnd(38)}  ${subj}\\n`;\n  });\n  if (deleted > 20) body += `  ...and ${deleted - 20} more\\n`;\n  body += '\\n';\n}\n\nif (archivedList.length > 0) {\n  body += `ARCHIVED (out of inbox, still searchable)\\n`;\n  body += `-----------------------------------------\\n`;\n  archivedList.forEach(e => {\n    const from = (e.from || '').substring(0, 38);\n    const subj = (e.subject || '').substring(0, 48);\n    body += `  ${from.padEnd(38)}  ${subj}\\n`;\n  });\n  if (archived > 20) body += `  ...and ${archived - 20} more\\n`;\n  body += '\\n';\n}\n\nbody += `WHAT WAS LEFT UNTOUCHED\\n`;\nbody += `-----------------------\\n`;\nbody += `Emails from real people (no List-Unsubscribe header) were never touched.\\n`;\nbody += `Financial emails (PayPal, bank statements, receipts, tax forms) were skipped.\\n`;\nbody += `Trashed emails stay in Gmail Trash for 30 days before permanent deletion.\\n\\n`;\nbody += `Search \"in:trash\" in Gmail if you need to recover anything.\\n\\n`;\nbody += `-- AICC Yahoo Cleanup Bot`;\n\nreturn [{ json: {\n  subject: `Yahoo Cleanup Done: ${deleted} deleted, ${archived} archived (${today})`,\n  body\n} }];"
+      },
+      "id": "yic-0010-4000-8000-000000000010",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1880, 400]
+    },
+
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toList": ["cham4547@gmail.com"],
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "yic-0011-4000-8000-000000000011",
+      "name": "Send Summary Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2120, 400],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail - cham4547@gmail.com"
+        }
+      }
+    }
+  ],
+
+  "connections": {
+    "Daily 9am CT": {
+      "main": [[{"node": "Get Delete Candidates", "type": "main", "index": 0}]]
+    },
+    "Get Delete Candidates": {
+      "main": [[{"node": "Filter + Store Delete Count", "type": "main", "index": 0}]]
+    },
+    "Filter + Store Delete Count": {
+      "main": [[{"node": "Loop Delete Items", "type": "main", "index": 0}]]
+    },
+    "Loop Delete Items": {
+      "main": [
+        [{"node": "Trash Email", "type": "main", "index": 0}],
+        [{"node": "Get Archive Candidates", "type": "main", "index": 0}]
+      ]
+    },
+    "Trash Email": {
+      "main": [[{"node": "Loop Delete Items", "type": "main", "index": 0}]]
+    },
+    "Get Archive Candidates": {
+      "main": [[{"node": "Filter + Store Archive Count", "type": "main", "index": 0}]]
+    },
+    "Filter + Store Archive Count": {
+      "main": [[{"node": "Loop Archive Items", "type": "main", "index": 0}]]
+    },
+    "Loop Archive Items": {
+      "main": [
+        [{"node": "Archive Email", "type": "main", "index": 0}],
+        [{"node": "Build Summary", "type": "main", "index": 0}]
+      ]
+    },
+    "Archive Email": {
+      "main": [[{"node": "Loop Archive Items", "type": "main", "index": 0}]]
+    },
+    "Build Summary": {
+      "main": [[{"node": "Send Summary Email", "type": "main", "index": 0}]]
+    }
+  },
+
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": ["email", "cleanup", "yahoo"],
+  "notes": "Runs daily at 9am CT. Searches for promotional emails (has:unsubscribe) addressed to caresir@yahoo.com. Deletes promos older than 30 days, archives recent promos. Financial and important emails are skipped. Sends Kareesa a summary to cham4547@gmail.com.\n\nSETUP:\n1. Import this file into n8n (Workflows > Import)\n2. Open the workflow and update the Gmail credential in every Gmail node to match your connected account\n3. Run once manually to test before activating\n4. Toggle Active ON to enable the daily schedule\n\nTO GUARD REAL ESTATE GMAIL TRIGGER:\nIn your Real Estate lead intake Gmail trigger, add this to the search filter:\n  -from:caresir@yahoo.com -to:caresir@yahoo.com\nThis prevents Yahoo subscription emails from being processed as leads."
+}

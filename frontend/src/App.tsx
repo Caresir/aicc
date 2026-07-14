@@ -1,14 +1,27 @@
+import { Routes, Route } from 'react-router-dom'
+import Layout from './components/layout/Layout'
+import Dashboard from './pages/Dashboard'
+import Leads from './pages/Leads'
+import Agents from './pages/Agents'
+import Tasks from './pages/Tasks'
+import RealEstate from './pages/RealEstate'
+import GymnastDiva from './pages/GymnastDiva'
+import FBA from './pages/FBA'
+import ContentCalendar from './pages/ContentCalendar'
+
 export default function App() {
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
-      <h1>AICC — AI Command Center</h1>
-      <p>Locked In with Kareesa · Frontend is live.</p>
-      <ul>
-        <li><a href="http://localhost:8080/docs">API Docs (FastAPI)</a></li>
-        <li><a href="http://localhost:8080/health">API Health</a></li>
-        <li><a href="http://localhost:5678">n8n Workflows</a></li>
-        <li><a href="http://localhost:3000">Supabase Studio</a></li>
-      </ul>
-    </div>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/real-estate" element={<RealEstate />} />
+        <Route path="/gymnast-diva" element={<GymnastDiva />} />
+        <Route path="/fba" element={<FBA />} />
+        <Route path="/leads" element={<Leads />} />
+        <Route path="/agents" element={<Agents />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/content-calendar" element={<ContentCalendar />} />
+      </Route>
+    </Routes>
   )
 }

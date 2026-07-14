@@ -74,6 +74,10 @@ class BaseAgent(ABC):
 
     # ── Core interface ─────────────────────────────────────────────────────────
 
+    def chat(self, message: str) -> str:
+        """Handle a conversational message. Override in subclasses for intent routing."""
+        return self.think(message)
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=8),

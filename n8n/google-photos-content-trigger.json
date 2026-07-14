@@ -1,0 +1,212 @@
+{
+  "name": "Google Photos → Content Director",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "gpct-0001-4000-8000-000000000001",
+      "name": "Every 2 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://photoslibrary.googleapis.com/v1/mediaItems:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"albumId\": \"REPLACE_WITH_GYMNAST_ALBUM_ID\",\n  \"pageSize\": 50,\n  \"filters\": {\n    \"mediaTypeFilter\": {\n      \"mediaTypes\": [\"VIDEO\"]\n    }\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "gpct-0002-4000-8000-000000000002",
+      "name": "Get GymnastDiva Videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 260],
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "GOOGLE_PHOTOS_CRED_ID",
+          "name": "Google Photos"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => ({\n  json: { ...item.json, _category: 'gymnastics', _content_type: 'highlight', _album: 'GymnastDiva Content' }\n}));"
+      },
+      "id": "gpct-0003-4000-8000-000000000003",
+      "name": "Tag Gymnast",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 260]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://photoslibrary.googleapis.com/v1/mediaItems:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"albumId\": \"REPLACE_WITH_RE_ALBUM_ID\",\n  \"pageSize\": 50,\n  \"filters\": {\n    \"mediaTypeFilter\": {\n      \"mediaTypes\": [\"VIDEO\"]\n    }\n  }\n}",
+        "options": {}
+      },
+      "id": "gpct-0004-4000-8000-000000000004",
+      "name": "Get Real Estate Videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 540],
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "GOOGLE_PHOTOS_CRED_ID",
+          "name": "Google Photos"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => ({\n  json: { ...item.json, _category: 're', _content_type: 'neighborhood_tour', _album: 'Real Estate Content' }\n}));"
+      },
+      "id": "gpct-0005-4000-8000-000000000005",
+      "name": "Tag Real Estate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 540]
+    },
+
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "gpct-0006-4000-8000-000000000006",
+      "name": "Merge Albums",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [920, 400]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Track which videos we've already processed\nconst sd = $getWorkflowStaticData('global');\nconst lastCheck = sd.lastVideoCheckTime\n  ? new Date(sd.lastVideoCheckTime)\n  : new Date(Date.now() - 3 * 60 * 60 * 1000); // 3 hours ago on first run\n\nconst processedIds = new Set(sd.processedVideoIds || []);\n\nconst newVideos = [];\n\nfor (const item of $input.all()) {\n  const mediaItems = item.json.mediaItems || [];\n  const category = item.json._category;\n  const contentType = item.json._content_type;\n  const album = item.json._album;\n\n  for (const video of mediaItems) {\n    // Skip already-processed videos\n    if (processedIds.has(video.id)) continue;\n\n    const createdAt = new Date(video.mediaMetadata?.creationTime || 0);\n    if (createdAt <= lastCheck) continue;\n\n    newVideos.push({\n      json: {\n        googleId: video.id,\n        filename: video.filename || 'untitled',\n        title: (video.description || video.filename || 'New Video').replace(/\\.[^/.]+$/, ''),\n        description: video.description || '',\n        category,\n        content_type: contentType,\n        album,\n        photos_url: video.productUrl || '',\n        created_at: createdAt.toISOString()\n      }\n    });\n  }\n}\n\n// Returning empty array stops the workflow silently — no notification sent\nreturn newVideos;"
+      },
+      "id": "gpct-0007-4000-8000-000000000007",
+      "name": "Filter New Videos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 400]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/content/notify-new-video",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{ $json.title }}\",\n  \"album\": \"{{ $json.album }}\",\n  \"category\": \"{{ $json.category }}\",\n  \"content_type\": \"{{ $json.content_type }}\",\n  \"description\": \"{{ $json.description }}\",\n  \"photos_url\": \"{{ $json.photos_url }}\"\n}",
+        "options": {}
+      },
+      "id": "gpct-0008-4000-8000-000000000008",
+      "name": "Notify AICC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1400, 400]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Update state so we don't reprocess these videos\nconst sd = $getWorkflowStaticData('global');\nsd.lastVideoCheckTime = new Date().toISOString();\n\n// Track processed IDs (keep last 500)\nconst existing = sd.processedVideoIds || [];\nconst newIds = $input.all().map(item => item.json.googleId).filter(Boolean);\nsd.processedVideoIds = [...new Set([...existing, ...newIds])].slice(-500);\n\n// Build summary email\nconst count = $input.all().length;\nconst now = new Date().toLocaleString('en-US', {\n  timeZone: 'America/Chicago',\n  weekday: 'short', month: 'short', day: 'numeric',\n  hour: 'numeric', minute: '2-digit'\n});\n\nlet body = `Hi Kareesa,\\n\\n`;\nbody += `${count} new video${count !== 1 ? 's were' : ' was'} detected in Google Photos and sent to your Content Director.\\n\\n`;\nbody += `Caption drafts are ready for your review.\\n\\n`;\nbody += `VIDEOS PROCESSED\\n----------------\\n`;\n\nfor (const item of $input.all()) {\n  const d = item.json;\n  const label = d.category === 'gymnastics' ? 'GymnastDiva' : 'Real Estate';\n  body += `  [${label}] ${d.title || d.filename || 'Untitled'}\\n`;\n}\n\nbody += `\\nReview and approve captions at: http://localhost:5174 → GymnastDiva → Content Queue\\n\\n`;\nbody += `-- AICC Content Bot | ${now}`;\n\nreturn [{ json: {\n  subject: `${count} new video${count !== 1 ? 's' : ''} queued for review in AICC`,\n  body\n} }];"
+      },
+      "id": "gpct-0009-4000-8000-000000000009",
+      "name": "Update State + Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 400]
+    },
+
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toList": ["cham4547@gmail.com"],
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "gpct-0010-4000-8000-000000000010",
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1880, 400],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail - cham4547@gmail.com"
+        }
+      }
+    }
+  ],
+
+  "connections": {
+    "Every 2 Hours": {
+      "main": [
+        [
+          {"node": "Get GymnastDiva Videos", "type": "main", "index": 0},
+          {"node": "Get Real Estate Videos", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Get GymnastDiva Videos": {
+      "main": [[{"node": "Tag Gymnast", "type": "main", "index": 0}]]
+    },
+    "Tag Gymnast": {
+      "main": [[{"node": "Merge Albums", "type": "main", "index": 0}]]
+    },
+    "Get Real Estate Videos": {
+      "main": [[{"node": "Tag Real Estate", "type": "main", "index": 0}]]
+    },
+    "Tag Real Estate": {
+      "main": [[{"node": "Merge Albums", "type": "main", "index": 1}]]
+    },
+    "Merge Albums": {
+      "main": [[{"node": "Filter New Videos", "type": "main", "index": 0}]]
+    },
+    "Filter New Videos": {
+      "main": [[{"node": "Notify AICC", "type": "main", "index": 0}]]
+    },
+    "Notify AICC": {
+      "main": [[{"node": "Update State + Build Summary", "type": "main", "index": 0}]]
+    },
+    "Update State + Build Summary": {
+      "main": [[{"node": "Send Notification", "type": "main", "index": 0}]]
+    }
+  },
+
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "tags": ["content", "google-photos", "gymnast-diva"],
+  "notes": "Watches two Google Photos albums every 2 hours. When new videos are found, auto-generates captions for all 4 platforms and queues them as drafts in AICC. Sends Kareesa an email notification.\n\n━━━━━━━━━━━━━━━━━━━━━━\nONE-TIME SETUP (read before importing)\n━━━━━━━━━━━━━━━━━━━━━━\n\nSTEP 1 — Create Google Photos albums\n  In Google Photos, create two albums:\n  • \"GymnastDiva Content\"  ← upload Iyah's gymnastics videos here\n  • \"Real Estate Content\"  ← upload neighborhood tour videos here\n\nSTEP 2 — Get your album IDs\n  Open each album in Google Photos → copy the ID from the URL:\n  https://photos.google.com/album/ALBUM_ID_IS_HERE\n\nSTEP 3 — Paste album IDs into this workflow\n  • \"Get GymnastDiva Videos\" node → replace REPLACE_WITH_GYMNAST_ALBUM_ID\n  • \"Get Real Estate Videos\" node → replace REPLACE_WITH_RE_ALBUM_ID\n\nSTEP 4 — Create Google Photos OAuth2 credential in n8n\n  1. Go to n8n → Credentials → New → Google OAuth2 API\n  2. Add scope: https://www.googleapis.com/auth/photoslibrary.readonly\n  3. Use the same Client ID and Secret as your Gmail credential\n     (you need to add the Photos Library API in Google Cloud Console first)\n  4. Name it \"Google Photos\" and connect your account\n  5. Update this credential in the two HTTP Request nodes (Get GymnastDiva Videos, Get Real Estate Videos)\n\nSTEP 5 — Update the Gmail credential\n  Set \"Send Notification\" node to use your cham4547@gmail.com credential\n\nSTEP 6 — Enable Photos Library API in Google Cloud\n  Go to console.cloud.google.com → APIs & Services → Enable APIs\n  Search for \"Photos Library API\" → Enable it\n\nSTEP 7 — Test and activate\n  Run manually first. After confirming it works, toggle Active ON."
+}

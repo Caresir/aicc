@@ -5,12 +5,17 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Any
 
+from agents.ceo_agent import CEOAgent
+from agents.content_director_agent import ContentDirectorAgent
+from agents.project_manager_agent import ProjectManagerAgent
 from agents.real_estate_agent import RealEstateAgent
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
-# Extend this dict as each agent is built in Phase 2
 _AGENT_CLASSES: dict[str, type] = {
+    "ceo": CEOAgent,
+    "content_director": ContentDirectorAgent,
+    "project_manager": ProjectManagerAgent,
     "real_estate": RealEstateAgent,
 }
 
@@ -46,8 +51,22 @@ def all_status():
 def chat(agent_name: str, body: ChatRequest):
     """Send a message to an agent and get its response."""
     agent = _get_agent(agent_name)
-    response = agent.think(body.message, context=body.context)
+    response = agent.chat(body.message)
     return {"agent": agent_name, "response": response}
+
+
+@router.post("/broadcast")
+def broadcast(body: ChatRequest):
+    """Send the same message to all active agents and collect responses."""
+    results = []
+    for name, cls in _AGENT_CLASSES.items():
+        try:
+            agent = cls()
+            response = agent.chat(body.message)
+            results.append({"agent": name, "response": response})
+        except Exception as exc:
+            results.append({"agent": name, "error": str(exc)})
+    return {"message": body.message, "responses": results}
 
 
 @router.get("/{agent_name}/report")
@@ -64,3 +83,11 @@ def recall(agent_name: str, key: str, memory_type: str = "context"):
     if value is None:
         raise HTTPException(status_code=404, detail=f"Memory key '{key}' not found.")
     return {"agent": agent_name, "key": key, "value": value}
+
+
+@router.post("/ceo/briefing")
+def run_briefing():
+    """Trigger the CEO Agent morning briefing manually and send via SMS."""
+    agent = CEOAgent()
+    briefing = agent.run_morning_briefing()
+    return {"status": "sent", "briefing": briefing}

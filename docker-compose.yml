@@ -251,6 +251,9 @@ services:
       BRAND_NAME: ${BRAND_NAME}
       AGENT_NAME: ${AGENT_NAME}
       TIMEZONE: ${TIMEZONE:-America/Chicago}
+      METRICOOL_TOKEN: ${METRICOOL_TOKEN}
+      METRICOOL_USER_ID: ${METRICOOL_USER_ID}
+      METRICOOL_BLOG_ID: ${METRICOOL_BLOG_ID}
     volumes:
       - ./backend:/app
     depends_on:

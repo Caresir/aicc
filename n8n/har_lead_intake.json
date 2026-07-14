@@ -1,0 +1,257 @@
+{
+  "name": "HAR Lead Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [{ "mode": "everyMinute" }]
+        },
+        "filters": {
+          "sender": "har.com noreply@har.com leads@har.com har_notification@har.com matrix"
+        },
+        "options": {
+          "includeSpamTrash": false
+        }
+      },
+      "id": "har-001",
+      "name": "Gmail — HAR Lead Emails",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "credentials": {
+        "gmailOAuth2": { "name": "Gmail — caresir.gonzales@kw.com" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reuses gmail_normalizer.js logic inline\nconst item = $input.first().json;\n\nfunction extractEmail(field) {\n  if (!field) return '';\n  if (typeof field === 'string') {\n    const match = field.match(/<([^>\\s]+@[^>\\s]+)>/);\n    return match ? match[1].trim() : field.trim();\n  }\n  if (field.value && Array.isArray(field.value) && field.value[0]?.address) return field.value[0].address;\n  if (typeof field.text === 'string') {\n    const match = field.text.match(/<([^>\\s]+@[^>\\s]+)>/);\n    return match ? match[1].trim() : field.text.trim();\n  }\n  if (field.address) return String(field.address);\n  return '';\n}\n\nfunction extractDisplayName(field) {\n  if (!field) return '';\n  if (typeof field === 'string') {\n    const match = field.match(/^\"?([^\"<]+)\"?\\s*</);\n    return match ? match[1].trim() : field.split('@')[0];\n  }\n  if (field.value && Array.isArray(field.value) && field.value[0]?.name) return field.value[0].name;\n  if (typeof field.text === 'string') {\n    const match = field.text.match(/^\"?([^\"<]+)\"?\\s*</);\n    return match ? match[1].trim() : '';\n  }\n  return '';\n}\n\nfunction decodeBase64url(data) {\n  if (!data) return '';\n  const standard = data.replace(/-/g, '+').replace(/_/g, '/');\n  return Buffer.from(standard, 'base64').toString('utf-8');\n}\n\nfunction searchParts(parts) {\n  if (!Array.isArray(parts)) return '';\n  for (const part of parts) {\n    if (part.mimeType === 'text/plain' && part.body?.data) return decodeBase64url(part.body.data);\n  }\n  for (const part of parts) {\n    if (Array.isArray(part.parts)) { const found = searchParts(part.parts); if (found) return found; }\n  }\n  for (const part of parts) {\n    if (part.mimeType === 'text/html' && part.body?.data) {\n      return decodeBase64url(part.body.data)\n        .replace(/<style[\\s\\S]*?<\\/style>/gi, '')\n        .replace(/<[^>]+>/g, ' ')\n        .replace(/&nbsp;/g, ' ')\n        .replace(/\\s{2,}/g, ' ').trim();\n    }\n  }\n  return '';\n}\n\nfunction extractBody(item) {\n  const payload = item.payload;\n  if (!payload) return '';\n  if (payload.body?.data) return decodeBase64url(payload.body.data);\n  if (Array.isArray(payload.parts)) return searchParts(payload.parts);\n  return '';\n}\n\nfunction headerValue(item, name) {\n  const headers = item.payload?.headers;\n  if (!Array.isArray(headers)) return '';\n  const h = headers.find(h => h.name?.toLowerCase() === name.toLowerCase());\n  return h?.value || '';\n}\n\nconst fromRaw = item.From || item.from || headerValue(item, 'from');\nconst from    = extractEmail(fromRaw);\nconst subject = item.Subject || item.subject || headerValue(item, 'subject') || '';\nconst body    = extractBody(item);\n\nreturn { json: { from, subject, body, messageId: item.id || '', threadId: item.threadId || '' } };"
+      },
+      "id": "har-002",
+      "name": "Normalize Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-har-001",
+              "leftValue": "={{ $json.from }}",
+              "rightValue": "har.com",
+              "operator": { "type": "string", "operation": "contains" }
+            },
+            {
+              "id": "cond-har-002",
+              "leftValue": "={{ $json.from }}",
+              "rightValue": "matrix",
+              "operator": { "type": "string", "operation": "contains" }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "har-003",
+      "name": "Is HAR / Matrix Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || '';\nconst subject = $json.subject || '';\n\n// ── Helpers ───────────────────────────────────────────────────────────────────\nfunction grab(text, ...patterns) {\n  for (const re of patterns) {\n    const m = text.match(re);\n    if (m && m[1]) return m[1].trim();\n  }\n  return '';\n}\n\n// ── Name ─────────────────────────────────────────────────────────────────────\nconst fullName = grab(body,\n  /(?:Name|Contact|Buyer|Sender)[:\\s]+([A-Z][a-zA-Z\\-']+(?:\\s[A-Z][a-zA-Z\\-']+)+)/,\n  /(?:From|Submitted by)[:\\s]+([A-Z][a-zA-Z\\-']+(?:\\s[A-Z][a-zA-Z\\-']+)+)/\n);\nconst nameParts = fullName.split(/\\s+/);\nconst firstName = nameParts[0] || 'Unknown';\nconst lastName  = nameParts.slice(1).join(' ') || 'Lead';\n\n// ── Email ─────────────────────────────────────────────────────────────────────\nconst email = grab(body,\n  /(?:Email|E-mail)[:\\s]+([\\w.+\\-]+@[\\w.\\-]+\\.[a-z]{2,})/i,\n  /([\\w.+\\-]+@[\\w.\\-]+\\.[a-z]{2,})/\n).toLowerCase();\n\n// ── Phone ─────────────────────────────────────────────────────────────────────\nconst phone = grab(body,\n  /(?:Phone|Cell|Mobile|Tel)[:\\s]+([\\d\\s().\\-+]{7,20})/i,\n  /\\b((?:\\+1[\\s\\-]?)?\\(?\\d{3}\\)?[\\s.\\-]?\\d{3}[\\s.\\-]?\\d{4})\\b/\n).replace(/[^\\d+]/g, '').replace(/^1/, '+1') || '';\n\n// ── Property ─────────────────────────────────────────────────────────────────\nconst property = grab(body,\n  /(?:Property|Address|Listing|Interested in|MLS)[:\\s]+([^\\n]{5,100})/i,\n  /(?:about|for)[:\\s]+([\\d]+[^\\n]{5,80}(?:St|Ave|Dr|Blvd|Rd|Ln|Way|Ct|Pl|TX)[^\\n]{0,30})/i\n);\n\n// ── Message ───────────────────────────────────────────────────────────────────\nconst message = grab(body,\n  /(?:Message|Comments?|Note|Question)[:\\s]+([\\s\\S]{10,500}?)(?:\\n{2,}|$)/i\n);\n\n// ── Source tag ───────────────────────────────────────────────────────────────\nconst source = $json.from.includes('matrix') ? 'Matrix MLS' : 'HAR.com';\n\nreturn {\n  json: {\n    first_name: firstName,\n    last_name: lastName,\n    email,\n    phone,\n    lead_type: 'buyer',\n    status: 'new',\n    source,\n    notes: [\n      property ? `Property interest: ${property}` : '',\n      message  ? `Message: ${message}` : '',\n      `Email subject: ${subject}`,\n      `Gmail message ID: ${$json.messageId}`,\n    ].filter(Boolean).join('\\n'),\n  }\n};"
+      },
+      "id": "har-004",
+      "name": "Parse Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-email-001",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "har-005",
+      "name": "Has Email Address?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 220]
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8080/api/leads?email={{ encodeURIComponent($json.email) }}",
+        "options": {}
+      },
+      "id": "har-006",
+      "name": "Check Duplicate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 140]
+    },
+    {
+      "parameters": {
+        "jsCode": "const existing = $input.first().json;\n// API returns { count: N, leads: [...] }\nconst isDuplicate = (existing.count || 0) > 0;\nreturn { json: { ...($('Parse Lead Data').first().json), isDuplicate } };"
+      },
+      "id": "har-007",
+      "name": "Tag Duplicate Flag",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 140]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-dup-001",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "har-008",
+      "name": "New Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1780, 140]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/leads",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ first_name: $json.first_name, last_name: $json.last_name, email: $json.email, phone: $json.phone, lead_type: $json.lead_type, status: $json.status, source: $json.source, notes: $json.notes }) }}",
+        "options": {}
+      },
+      "id": "har-009",
+      "name": "Create Lead in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 60]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/agents/ceo/chat",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "=New lead just came in from {{ $('Tag Duplicate Flag').first().json.source }}: {{ $('Tag Duplicate Flag').first().json.first_name }} {{ $('Tag Duplicate Flag').first().json.last_name }}, {{ $('Tag Duplicate Flag').first().json.phone || 'no phone' }}, {{ $('Tag Duplicate Flag').first().json.email }}. Notes: {{ $('Tag Duplicate Flag').first().json.notes }}. Draft a 2-sentence warm intro text message Kareesa can send within the hour."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "har-010",
+      "name": "Draft Welcome Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 60]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/tasks",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "request",
+              "value": "=New HAR lead: {{ $('Tag Duplicate Flag').first().json.first_name }} {{ $('Tag Duplicate Flag').first().json.last_name }} {{ $('Tag Duplicate Flag').first().json.phone }} {{ $('Tag Duplicate Flag').first().json.email }} — send welcome text within 1 hour. Priority critical real_estate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "har-011",
+      "name": "Create Urgent Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 60]
+    }
+  ],
+  "connections": {
+    "Gmail — HAR Lead Emails": {
+      "main": [
+        [{ "node": "Normalize Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize Email": {
+      "main": [
+        [{ "node": "Is HAR / Matrix Email?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is HAR / Matrix Email?": {
+      "main": [
+        [{ "node": "Parse Lead Data", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Parse Lead Data": {
+      "main": [
+        [{ "node": "Has Email Address?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Email Address?": {
+      "main": [
+        [{ "node": "Check Duplicate", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Check Duplicate": {
+      "main": [
+        [{ "node": "Tag Duplicate Flag", "type": "main", "index": 0 }]
+      ]
+    },
+    "Tag Duplicate Flag": {
+      "main": [
+        [{ "node": "New Lead?", "type": "main", "index": 0 }]
+      ]
+    },
+    "New Lead?": {
+      "main": [
+        [{ "node": "Create Lead in Supabase", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Create Lead in Supabase": {
+      "main": [
+        [{ "node": "Draft Welcome Text", "type": "main", "index": 0 }]
+      ]
+    },
+    "Draft Welcome Text": {
+      "main": [
+        [{ "node": "Create Urgent Task", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "America/Chicago"
+  },
+  "tags": ["real-estate", "leads"]
+}

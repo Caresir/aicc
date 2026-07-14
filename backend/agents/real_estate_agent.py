@@ -169,6 +169,86 @@ class RealEstateAgent(BaseAgent):
         except Exception as exc:
             logger.error(f"[real_estate] save_sequence() failed: {exc}")
 
+    # ── Social Media Content ───────────────────────────────────────────────────
+
+    def generate_social_post(
+        self,
+        content_type: str,
+        platform: str,
+        context: str = "",
+    ) -> str:
+        """Generate a branded social media post for Kareesa's real estate brand."""
+        platform_guides = {
+            "instagram": (
+                "Instagram caption: 3-5 sentences, storytelling, warm and personal. "
+                "Use emojis naturally. End with a soft call to action. "
+                "Add 15-20 hashtags as a separate block at the end."
+            ),
+            "facebook": (
+                "Facebook post: 2-4 sentences, warm and conversational, parent/community audience. "
+                "Feel like a trusted neighbor sharing info, not an ad. "
+                "End with a question to spark comments. 3-5 hashtags max."
+            ),
+            "tiktok": (
+                "TikTok caption: 1-2 punchy sentences, hook energy, speaks to first-time buyers or "
+                "people thinking about moving. 3-5 hashtags inline."
+            ),
+            "linkedin": (
+                "LinkedIn post: professional but personal, 3-4 short paragraphs. "
+                "Lead with a story or insight from the field. Minimal hashtags (3-5). "
+                "End with a clear takeaway or question."
+            ),
+        }
+
+        content_type_guides = {
+            "market_update": "Share a relevant Texas/Houston area real estate market insight. "
+                "Make the data feel personal and relevant to someone thinking about buying or selling.",
+            "buyer_tip": "Share one practical tip for home buyers in the Houston area. "
+                "Draw on your teacher background to make it easy to understand.",
+            "seller_tip": "Share one practical tip for home sellers. "
+                "Help them get top dollar or avoid a common mistake.",
+            "personal_brand": "Share a personal story or moment that connects your teaching background "
+                "to real estate. Show who Kareesa is as a person, not just an agent. "
+                "Brand: 'Locked In with Kareesa' — Class is in session, let's get you home.",
+            "community": "Highlight something great about Pearland, TX or the surrounding Houston suburbs "
+                "(Katy, Sugar Land, The Woodlands, Cypress). Make people feel proud to live there.",
+            "testimonial_ask": "Create a warm, non-awkward post inviting past clients or community "
+                "members to share their experience working with Kareesa.",
+            "call_to_action": "Direct post inviting people who are thinking about buying or selling "
+                "to reach out. Warm and low-pressure. DM or link in bio.",
+            "land_education": "Educate buyers about purchasing land or acreage in Texas — "
+                "what to look for, questions to ask, common mistakes to avoid.",
+        }
+
+        platform_cta = {
+            "instagram": "End with a call to action directing people to the link in bio to book a free Home Goals Call.",
+            "facebook": "End with a call to action: book a free Home Goals Call at https://calendly.com/coachcaresir/homegoalscall",
+            "tiktok": "End with: book your free Home Goals Call — link in bio 🔑",
+            "linkedin": "End with a call to action inviting people to book a free Home Goals Call at https://calendly.com/coachcaresir/homegoalscall",
+        }
+
+        prompt = (
+            f"Write a real estate social media post for Kareesa Gonzales.\n\n"
+            f"PLATFORM: {platform}\n"
+            f"FORMAT GUIDE: {platform_guides.get(platform, 'Engaging social post.')}\n\n"
+            f"CONTENT TYPE: {content_type}\n"
+            f"CONTENT GUIDE: {content_type_guides.get(content_type, content_type)}\n\n"
+            f"ADDITIONAL CONTEXT FROM KAREESA: {context or 'None provided — use your best judgment.'}\n\n"
+            "BRAND RULES:\n"
+            "- Brand: Locked In with Kareesa | KW Preferred Pearland TX\n"
+            "- Tagline: 'Class is in session — let's get you home.'\n"
+            "- Former teacher of 15 years in Houston-area schools — use this authentically\n"
+            "- Warm, relatable, emoji-inclusive when appropriate\n"
+            "- NO hyphens or dashes anywhere in the post\n"
+            "- NO AI-sounding phrases (never say 'I hope this finds you', 'dive in', 'landscape')\n"
+            "- Write like a real person who cares about the community\n"
+            "- Never sound salesy or pushy\n\n"
+            f"CALL TO ACTION: {platform_cta.get(platform, 'End with a soft call to action to book a free Home Goals Call.')}\n\n"
+            "Output the post text only — no labels, no explanation, just the post."
+        )
+
+        return self.think(prompt)
+
     # ── Helpers ────────────────────────────────────────────────────────────────
 
     def _lead_context(self, lead: dict) -> dict[str, Any]:

@@ -1,0 +1,164 @@
+{
+  "name": "Metricool — Schedule Post Push",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "metricool-push",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://rest:3000/video_tracker?id=eq.{{ $json.body.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000002",
+      "name": "Get Video Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        }
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000003",
+      "name": "Video Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Metricool schedule payload\nconst video = $('Get Video Record').first().json[0];\nconst body = $('Webhook Trigger').first().json.body;\n\n// Calculate next Tue or Thu at 9am CT if no datetime given\nfunction nextSlot() {\n  const now = new Date();\n  // Convert to CT offset (-5 or -6 depending on DST, approximate)\n  for (let i = 1; i <= 7; i++) {\n    const d = new Date(now);\n    d.setDate(d.getDate() + i);\n    const day = d.getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu\n    if (day === 2 || day === 4) { // Tue=2, Thu=4 (JS uses 0=Sun)\n      const yyyy = d.getFullYear();\n      const mm = String(d.getMonth()+1).padStart(2,'0');\n      const dd = String(d.getDate()).padStart(2,'0');\n      return `${yyyy}-${mm}-${dd}T09:00:00`;\n    }\n  }\n  return new Date(Date.now() + 2*86400000).toISOString().slice(0,19);\n}\n\nconst publishDatetime = body.publish_datetime || nextSlot();\nconst networks = body.networks || ['instagram', 'tiktok'];\nconst caption = body.caption_override || video.notes || video.title;\nconst mediaUrl = body.media_url;\n\nreturn [{\n  json: {\n    metricoolPayload: {\n      message: caption,\n      publishDate: {\n        dateTime: publishDatetime,\n        timezone: 'America/Chicago'\n      },\n      networks: networks,\n      media: mediaUrl ? [{ url: mediaUrl, type: 'video' }] : []\n    },\n    video_id: video.id,\n    publishDatetime,\n    scheduledDate: publishDatetime.slice(0, 10)\n  }\n}];"
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000004",
+      "name": "Build Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://app.metricool.com/api/smart/v1/posts?userId={{ $env.METRICOOL_USER_ID }}&blogId={{ $env.METRICOOL_BLOG_ID }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Mc-Auth", "value": "={{ $env.METRICOOL_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.metricoolPayload) }}",
+        "options": {}
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000005",
+      "name": "POST to Metricool",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 220]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://rest:3000/video_tracker?id=eq.{{ $('Build Payload').first().json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"caption_status\": \"approved\", \"scheduled_for\": \"{{ $('Build Payload').first().json.scheduledDate }}\"}",
+        "options": {}
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000006",
+      "name": "Update video_tracker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1340, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"scheduled\": true, \"video_id\": \"{{ $('Build Payload').first().json.video_id }}\", \"publish_datetime\": \"{{ $('Build Payload').first().json.publishDatetime }}\" }"
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000007",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"error\": \"Video not found\" }",
+        "options": { "responseCode": 404 }
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000008",
+      "name": "Respond Not Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 420]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Get Video Record", "type": "main", "index": 0 }]]
+    },
+    "Get Video Record": {
+      "main": [[{ "node": "Video Found?", "type": "main", "index": 0 }]]
+    },
+    "Video Found?": {
+      "main": [
+        [{ "node": "Build Payload", "type": "main", "index": 0 }],
+        [{ "node": "Respond Not Found", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Payload": {
+      "main": [[{ "node": "POST to Metricool", "type": "main", "index": 0 }]]
+    },
+    "POST to Metricool": {
+      "main": [[{ "node": "Update video_tracker", "type": "main", "index": 0 }]]
+    },
+    "Update video_tracker": {
+      "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "a1b2c3d4-0001-0001-0001-000000000001",
+  "meta": { "templateCredsSetupCompleted": true },
+  "pinData": {},
+  "tags": [{ "name": "metricool" }, { "name": "content" }]
+}
