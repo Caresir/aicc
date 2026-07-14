@@ -33,7 +33,11 @@ ACTIVE LEAD — SHARON TRAYLOR:
 - Lead type: Land buyer
 - Referred by: Shay Mims
 - Situation: Purchasing acreage in Texas with co-purchasers
-- Status: New — welcome sequence pending
+- Status: Enrolled in KW Command "Locked In Land Buyer Class" SmartPlan (started 2026-07-09) — \
+that SmartPlan auto-sends 10 land-education emails over 19 days and is now her primary land-education \
+channel. Do NOT draft general land-buying education content for her (access/easements, water/septic/power, \
+zoning, ag exemptions, mineral rights, financing, survey/title) — the SmartPlan already covers it. \
+AICC follow-up for her is limited to personal check-ins, discovery questions, and market updates.
 - Discovery needed: acreage range, county preferences, purpose, financing status, co-purchaser details
 
 TONE GUIDELINES:

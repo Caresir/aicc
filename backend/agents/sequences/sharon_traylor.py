@@ -12,6 +12,13 @@ via the Real Estate Assistant agent.
 
 The sequence is also seeded in migration 002 — run this script only if you
 need to regenerate or refresh the sequence after making edits.
+
+RESOLVED 2026-07-13: Sharon was manually enrolled in the KW Command "Locked In
+Land Buyer Class" SmartPlan on 2026-07-09 (auto-sending, 10 emails/19 days,
+same land-education curriculum as step 4 below). Step 4 has been marked
+"skipped" in follow_up_sequences to avoid duplicate content — the SmartPlan is
+now the primary land-education channel for her. If this script is re-run to
+regenerate the sequence, re-apply that skip afterward.
 """
 from __future__ import annotations
 

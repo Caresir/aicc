@@ -26,12 +26,16 @@ reply.
   closing, welcome to landownership
 - **Status:** live. Sharon Traylor was manually enrolled via her contact
   profile (Start Now) on 2026-07-09.
-- ⚠️ **Known overlap:** `backend/agents/sequences/sharon_traylor.py` already
-  defines a separate 6-step AICC-native follow-up sequence for Sharon
-  (`FOLLOW_UP_SEQUENCE`), and `real_estate_agent.py`'s system prompt still
-  lists her status as "New — welcome sequence pending." Sharon is now on
-  **two** parallel outreach tracks. Reconcile before either one sends
-  duplicate content — see TODO.md.
+- ✅ **Resolved 2026-07-13:** Sharon was on two parallel outreach tracks —
+  this SmartPlan and the AICC-native 6-step sequence in
+  `backend/agents/sequences/sharon_traylor.py`. Decision: the SmartPlan wins
+  for land-education content. Step 4 of the AICC sequence (the day-7 "5
+  Things Every Texas Land Buyer Should Know" email, which duplicated this
+  SmartPlan's curriculum) was marked `skipped` in `follow_up_sequences`, and
+  `real_estate_agent.py`'s system prompt now tells the agent not to draft
+  land-education content for her. Her remaining AICC touches (welcome text,
+  discovery email, check-in texts, market update) stay active since they
+  aren't covered by the SmartPlan.
 
 ### Locked In Monthly: Class Notes
 - **Steps:** 12 emails, one per month, `Wait 30 Days` cadence, then `Add

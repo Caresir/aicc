@@ -55,6 +55,18 @@
 
 ## Notes
 
+- **Fixed 2026-07-13:** `scripts/init-aicc.sql` only granted the `postgres`
+  role schema privileges on the `n8n` database, never `aicc` — every
+  migration against `aicc` had been silently failing since first init
+  (`permission denied for schema public`). No tables existed; nothing
+  described as "seeded"/"confirmed working" in PROJECT_ROADMAP.md before this
+  date was actually persisted. Fixed the init script and applied the grant to
+  the live database, then re-ran migrations — all 11 tables now exist and
+  Sharon Traylor's lead + sequence records are real. If anyone spins up a
+  fresh volume, this fix is now baked into init-aicc.sql.
+- Sharon Traylor dual-track outreach conflict: resolved 2026-07-13 — see
+  REAL_ESTATE_ASSETS.md. SmartPlan wins for land education; AICC sequence
+  step 4 skipped, other steps still active.
 - Twilio account: ACTIVE as of 2026-07-06 — unblocks CEO briefing SMS + milestone alerts
 - Broker Jennifer must approve any agreements before they are executed in Lone Wolf
 - Sharon Traylor: active land buyer lead, 6-step sequence loaded, referred by Shay Mims
