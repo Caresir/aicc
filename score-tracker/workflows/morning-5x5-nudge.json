@@ -1,0 +1,86 @@
+{
+  "name": "SCORE — Morning 5x5 Nudge",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "score-am-001",
+      "name": "9AM Weekdays",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/fivexfive_streak?select=days,streak_end&order=streak_end.desc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "score-am-002",
+      "name": "Get Current Streak",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// PostgREST returns a JSON array. n8n's HTTP Request node passes it through\n// as a single item whose .json IS that array — normalize defensively either way.\nfunction asRows(x) {\n  if (Array.isArray(x)) return x;\n  if (x && Array.isArray(x.data)) return x.data;\n  return x ? [x] : [];\n}\n\nconst rows = asRows($input.first().json);\nconst row = rows[0];\n\nconst BASE = \"Good morning, Ms. Gonzales. Class is in session — today's 5x5. \" +\n  \"Script: catch up first, then offer a free equity check. \" +\n  \"Reply DONE tonight with your numbers.\";\n\nif (!row || !row.streak_end || !row.days) {\n  return [{ json: { message: BASE } }];\n}\n\nconst today = new Date();\ntoday.setHours(0, 0, 0, 0);\nconst dow = today.getDay(); // 0=Sun ... 1=Mon ... 5=Fri\nconst lastBusinessDay = new Date(today);\nlastBusinessDay.setDate(today.getDate() - (dow === 1 ? 3 : 1)); // Monday -> back to Friday\n\nconst streakEnd = new Date(row.streak_end + 'T00:00:00');\nconst isAlive = streakEnd.getTime() === lastBusinessDay.getTime();\n\nconst message = isAlive\n  ? `${BASE} You're on a ${row.days}-day streak — don't break the chain.`\n  : BASE;\n\nreturn [{ json: { message } }];"
+      },
+      "id": "score-am-003",
+      "name": "Build Nudge Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $env.MY_CELL }}",
+        "message": "={{ $json.message }}"
+      },
+      "id": "score-am-004",
+      "name": "Send 5x5 Nudge",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "credentials": {
+        "twilioApi": { "name": "Twilio account" }
+      }
+    }
+  ],
+  "connections": {
+    "9AM Weekdays": {
+      "main": [[{ "node": "Get Current Streak", "type": "main", "index": 0 }]]
+    },
+    "Get Current Streak": {
+      "main": [[{ "node": "Build Nudge Message", "type": "main", "index": 0 }]]
+    },
+    "Build Nudge Message": {
+      "main": [[{ "node": "Send 5x5 Nudge", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "America/Chicago"
+  },
+  "tags": ["score-tracker"]
+}

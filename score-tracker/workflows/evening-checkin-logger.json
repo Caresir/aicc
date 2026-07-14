@@ -1,0 +1,246 @@
+{
+  "name": "SCORE — Evening Check-in Logger",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 30 19 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "score-pm-001",
+      "name": "7:30PM Weekdays",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 160]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $env.MY_CELL }}",
+        "message": "Report card time. Reply in plain English, e.g. '1 post, 5 convos, 1 cma, class today'"
+      },
+      "id": "score-pm-002",
+      "name": "Send Check-in Prompt",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [460, 160],
+      "credentials": {
+        "twilioApi": { "name": "Twilio account" }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "score-checkin-inbound",
+        "options": {}
+      },
+      "id": "score-pm-010",
+      "name": "Twilio Inbound SMS",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Twilio posts application/x-www-form-urlencoded — n8n parses it into $json.body\nconst body = $input.first().json.body || {};\n\nconst now = new Date();\nconst dow = now.getDay(); // 0=Sun ... 1=Mon\nconst diffToMonday = dow === 0 ? -6 : 1 - dow;\nconst monday = new Date(now);\nmonday.setDate(now.getDate() + diffToMonday);\nconst weekStart = monday.toISOString().slice(0, 10);\n\nreturn [{\n  json: {\n    smsBody: body.Body || '',\n    from: body.From || '',\n    messageSid: body.MessageSid || '',\n    weekStart,\n  }\n}];"
+      },
+      "id": "score-pm-011",
+      "name": "Extract SMS Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 500, temperature: 0, messages: [{ role: 'user', content: 'Convert this SCORE activity report into a JSON array of {\"activity_type\": ..., \"quantity\": N}. Allowed activity_type values ONLY: social_post, kwp_class, signed_agreement, oh_flyer_share, oh_doorknock, oh_host, oh_followup, conversation, command_opportunity, cma. \"class today\" or \"class\" means kwp_class. \"convos\" or \"conversations\" means conversation. \"cma\" or \"cmas\" means cma. \"post\" or \"posts\" means social_post. Respond with ONLY the raw JSON array, no markdown code fences, no explanation, no extra text. Report: ' + $json.smsBody }] }) }}",
+        "options": {}
+      },
+      "id": "score-pm-012",
+      "name": "Call Claude — Parse Activities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ALLOWED = new Set([\n  'social_post', 'kwp_class', 'signed_agreement', 'oh_flyer_share',\n  'oh_doorknock', 'oh_host', 'oh_followup', 'conversation',\n  'command_opportunity', 'cma',\n]);\n\nconst extracted = $('Extract SMS Fields').first().json;\nconst claudeResponse = $input.first().json;\n\nfunction stripFences(text) {\n  return text.replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '').trim();\n}\n\nlet parseError = false;\nlet activities = [];\n\ntry {\n  const rawText = claudeResponse.content?.[0]?.text || '';\n  const cleaned = stripFences(rawText);\n  const parsed = JSON.parse(cleaned);\n\n  if (!Array.isArray(parsed) || parsed.length === 0) {\n    parseError = true;\n  } else {\n    for (const item of parsed) {\n      const type = item.activity_type;\n      const qty = Number(item.quantity);\n      if (!ALLOWED.has(type) || !Number.isFinite(qty) || qty <= 0) {\n        parseError = true;\n        break;\n      }\n      activities.push({ activity_type: type, quantity: Math.floor(qty) });\n    }\n  }\n} catch (err) {\n  parseError = true;\n}\n\nreturn [{\n  json: {\n    parseError,\n    activities,\n    from: extracted.from,\n    smsBody: extracted.smsBody,\n    weekStart: extracted.weekStart,\n  }\n}];"
+      },
+      "id": "score-pm-013",
+      "name": "Parse & Validate JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 420]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "score-pm-cond-001",
+              "leftValue": "={{ $json.parseError }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "score-pm-014",
+      "name": "Parsed OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/score_activities",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.activities.map(a => ({ activity_type: a.activity_type, quantity: a.quantity, source: 'sms', notes: $json.smsBody }))) }}",
+        "options": {}
+      },
+      "id": "score-pm-015",
+      "name": "Bulk Insert Activities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 340],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/get_weekly_score",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ week_start: $('Parse & Validate JSON').item.json.weekStart }) }}",
+        "options": {}
+      },
+      "id": "score-pm-016",
+      "name": "Get Weekly Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "function asRows(x) {\n  if (Array.isArray(x)) return x;\n  if (x && Array.isArray(x.data)) return x.data;\n  return x ? [x] : [];\n}\n\nconst parsed = $('Parse & Validate JSON').first().json;\nconst rows = asRows($input.first().json);\nconst total = rows.reduce((sum, r) => sum + (r.points || 0), 0);\n\nconst LABELS = {\n  social_post: 'post', kwp_class: 'class', signed_agreement: 'agreement',\n  oh_flyer_share: 'flyer share', oh_doorknock: 'doorknock', oh_host: 'OH hosted',\n  oh_followup: 'OH follow-up', conversation: 'convo',\n  command_opportunity: 'Command opp', cma: 'CMA',\n};\n\nconst summary = parsed.activities\n  .map(a => `${a.quantity} ${LABELS[a.activity_type] || a.activity_type}${a.quantity > 1 ? 's' : ''}`)\n  .join(', ');\n\nreturn [{\n  json: {\n    message: `Logged \\u2705 ${summary}. Week so far: ${total} pts.`,\n    to: parsed.from,\n  }\n}];"
+      },
+      "id": "score-pm-017",
+      "name": "Build Confirmation Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 340]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.to }}",
+        "message": "={{ $json.message }}"
+      },
+      "id": "score-pm-018",
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [2000, 340],
+      "credentials": {
+        "twilioApi": { "name": "Twilio account" }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.from }}",
+        "message": "Didn't catch that — try like this: '2 posts, 5 convos'"
+      },
+      "id": "score-pm-019",
+      "name": "Send Parse Failure Message",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1340, 520],
+      "credentials": {
+        "twilioApi": { "name": "Twilio account" }
+      }
+    }
+  ],
+  "connections": {
+    "7:30PM Weekdays": {
+      "main": [[{ "node": "Send Check-in Prompt", "type": "main", "index": 0 }]]
+    },
+    "Twilio Inbound SMS": {
+      "main": [[{ "node": "Extract SMS Fields", "type": "main", "index": 0 }]]
+    },
+    "Extract SMS Fields": {
+      "main": [[{ "node": "Call Claude — Parse Activities", "type": "main", "index": 0 }]]
+    },
+    "Call Claude — Parse Activities": {
+      "main": [[{ "node": "Parse & Validate JSON", "type": "main", "index": 0 }]]
+    },
+    "Parse & Validate JSON": {
+      "main": [[{ "node": "Parsed OK?", "type": "main", "index": 0 }]]
+    },
+    "Parsed OK?": {
+      "main": [
+        [{ "node": "Bulk Insert Activities", "type": "main", "index": 0 }],
+        [{ "node": "Send Parse Failure Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Bulk Insert Activities": {
+      "main": [[{ "node": "Get Weekly Score", "type": "main", "index": 0 }]]
+    },
+    "Get Weekly Score": {
+      "main": [[{ "node": "Build Confirmation Message", "type": "main", "index": 0 }]]
+    },
+    "Build Confirmation Message": {
+      "main": [[{ "node": "Send Confirmation", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "America/Chicago"
+  },
+  "tags": ["score-tracker"]
+}

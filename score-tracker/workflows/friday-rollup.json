@@ -1,0 +1,192 @@
+{
+  "name": "SCORE — Friday Rollup",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 18 * * 5"
+            }
+          ]
+        }
+      },
+      "id": "score-fr-001",
+      "name": "Friday 6PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst dow = now.getDay(); // Friday = 5\nconst diffToMonday = dow === 0 ? -6 : 1 - dow;\nconst monday = new Date(now);\nmonday.setDate(now.getDate() + diffToMonday);\n\nconst thisWeekStart = monday.toISOString().slice(0, 10);\nconst lastMonday = new Date(monday);\nlastMonday.setDate(monday.getDate() - 7);\nconst lastWeekStart = lastMonday.toISOString().slice(0, 10);\n\nconst dateLabel = monday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nreturn [{ json: { thisWeekStart, lastWeekStart, dateLabel } }];"
+      },
+      "id": "score-fr-002",
+      "name": "Compute Week Ranges",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/get_weekly_score",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ week_start: $json.thisWeekStart }) }}",
+        "options": {}
+      },
+      "id": "score-fr-003",
+      "name": "Get This Week Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/get_weekly_score",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ week_start: $('Compute Week Ranges').item.json.lastWeekStart }) }}",
+        "options": {}
+      },
+      "id": "score-fr-004",
+      "name": "Get Last Week Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "function asRows(x) {\n  if (Array.isArray(x)) return x;\n  if (x && Array.isArray(x.data)) return x.data;\n  return x ? [x] : [];\n}\n\nconst ranges = $('Compute Week Ranges').first().json;\nconst thisWeek = asRows($('Get This Week Score').first().json);\nconst lastWeek = asRows($input.first().json);\n\nconst MAX_POINTS = {\n  'S - Social Media': 10,\n  'C - Classes': 5,\n  'C - Signed Agreements': null,\n  'O - Open Houses': null,\n  'R - 5x5 Conversations': 25,\n  'R - Command Opportunities': null,\n  'E - CMA': 20,\n};\n\nconst thisTotal = thisWeek.reduce((sum, c) => sum + (c.points || 0), 0);\nconst lastTotal = lastWeek.reduce((sum, c) => sum + (c.points || 0), 0);\n\nconst thisWeekWithMax = thisWeek.map(c => ({ ...c, max_points: MAX_POINTS[c.category] }));\n\nreturn [{\n  json: {\n    thisWeekStart: ranges.thisWeekStart,\n    dateLabel: ranges.dateLabel,\n    thisTotal,\n    lastTotal,\n    thisWeek: thisWeekWithMax,\n    lastWeek,\n  }\n}];"
+      },
+      "id": "score-fr-005",
+      "name": "Merge & Compute Totals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 900, temperature: 0.7, messages: [{ role: 'user', content: 'You are an accountability coach for \"Locked In with Kareesa\" — a former teacher turned REALTOR on a Keller Williams SCORE team. Persona: warm but direct, former-teacher energy, no fluff.\\n\\nThis week (' + $json.dateLabel + ') category performance, with points earned and max possible (null = no cap):\\n' + JSON.stringify($json.thisWeek) + '\\nThis week total: ' + $json.thisTotal + ' pts. Last week total: ' + $json.lastTotal + ' pts.\\n\\nWrite a JSON object with exactly two fields:\\n\"report_card\": a teacher-style weekly report card under 400 words TOTAL (covering both parts below combined). Part 1: assign a letter grade per category (use percent of max where a max exists; for uncapped categories judge by effort — any activity is a pass, zero is a gap), celebrate the biggest win, and name the single biggest gap plainly. Part 2: a day-by-day (Mon-Fri) game plan for next week that targets at least ' + (2 * $json.thisTotal) + ' points total next week, front-loading her strongest categories early in the week.\\n\"headline\": one punchy sentence (under 100 characters) summarizing the week, no points total in it.\\n\\nRespond with ONLY the raw JSON object, no markdown code fences, no explanation.' }] }) }}",
+        "options": {}
+      },
+      "id": "score-fr-006",
+      "name": "Call Claude — Generate Report Card",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const merged = $('Merge & Compute Totals').first().json;\nconst response = $input.first().json;\n\nfunction stripFences(text) {\n  return text.replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '').trim();\n}\n\nlet reportCard = '';\nlet headline = '';\n\ntry {\n  const rawText = response.content?.[0]?.text || '';\n  const parsed = JSON.parse(stripFences(rawText));\n  reportCard = parsed.report_card || '';\n  headline = parsed.headline || '';\n} catch (err) {\n  reportCard = (response.content?.[0]?.text || 'Report card generation failed — check n8n execution log.').trim();\n  headline = `Week wrapped \\u2014 ${merged.thisTotal} pts!`;\n}\n\nreturn [{\n  json: {\n    reportCard,\n    headline,\n    thisTotal: merged.thisTotal,\n    dateLabel: merged.dateLabel,\n  }\n}];"
+      },
+      "id": "score-fr-007",
+      "name": "Parse Claude Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $env.MY_EMAIL }}",
+        "subject": "=SCORE Report Card — Week of {{ $json.dateLabel }} — {{ $json.thisTotal }} pts",
+        "emailType": "text",
+        "message": "={{ $json.reportCard }}",
+        "options": {}
+      },
+      "id": "score-fr-008",
+      "name": "Send Report Card Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1780, 220],
+      "credentials": {
+        "gmailOAuth2": { "name": "Gmail account" }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $env.MY_CELL }}",
+        "message": "={{ $json.headline }} Total: {{ $json.thisTotal }} pts."
+      },
+      "id": "score-fr-009",
+      "name": "Send SMS Headline",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1780, 400],
+      "credentials": {
+        "twilioApi": { "name": "Twilio account" }
+      }
+    }
+  ],
+  "connections": {
+    "Friday 6PM": {
+      "main": [[{ "node": "Compute Week Ranges", "type": "main", "index": 0 }]]
+    },
+    "Compute Week Ranges": {
+      "main": [[{ "node": "Get This Week Score", "type": "main", "index": 0 }]]
+    },
+    "Get This Week Score": {
+      "main": [[{ "node": "Get Last Week Score", "type": "main", "index": 0 }]]
+    },
+    "Get Last Week Score": {
+      "main": [[{ "node": "Merge & Compute Totals", "type": "main", "index": 0 }]]
+    },
+    "Merge & Compute Totals": {
+      "main": [[{ "node": "Call Claude — Generate Report Card", "type": "main", "index": 0 }]]
+    },
+    "Call Claude — Generate Report Card": {
+      "main": [[{ "node": "Parse Claude Report", "type": "main", "index": 0 }]]
+    },
+    "Parse Claude Report": {
+      "main": [
+        [
+          { "node": "Send Report Card Email", "type": "main", "index": 0 },
+          { "node": "Send SMS Headline", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "America/Chicago"
+  },
+  "tags": ["score-tracker"]
+}
