@@ -7,18 +7,16 @@
 
 ## 🔥 Unblocked Right Now — Do These Next
 
-- [ ] **Add Twilio credentials to .env** — TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, KAREESA_PHONE
-- [ ] **Test CEO morning briefing SMS** — Twilio account now active; briefing is built, just needs live credentials
-- [ ] **Wire Twilio SMS milestone alerts** — transaction status changes → SMS (Phase 3.4 — built, pending Twilio)
-- [ ] **Deploy website to Netlify** — footer has IABS, brokerage info, EHO, correct email. Copy IABS PDF first:
-      rename your PDF → `Caresir_IABS_2026_KWP.pdf` → drop into `locked-in-homes-site/` → deploy folder
+- [x] **Add Twilio credentials to .env** — done 2026-07-13
+- [x] **Test CEO morning briefing SMS** — done 2026-07-13, endpoint fires and reports "sent"; A2P campaign still under carrier re-review after Error 30925 fix, so actual delivery unconfirmed until approval clears
+- [ ] **Wire Twilio SMS milestone alerts** — code + env wiring done 2026-07-13; same carrier-review caveat as above
+- [x] **Deploy website to Netlify** — done 2026-07-13 (SMS consent checkbox fix)
 
 ---
 
-## Phase 3 — Remaining (3 items)
+## Phase 3 — Remaining (2 items)
 
 - [ ] **HAR MLS lead intake n8n workflow** — auto-capture leads from saved searches → Supabase leads table
-- [ ] **Twilio SMS milestone alerts** — 🔓 unblocked now (see above)
 - [ ] **Lone Wolf API read** — ⏳ still blocked, waiting on API access from Lone Wolf
 
 ---
