@@ -223,6 +223,9 @@ services:
       GENERIC_TIMEZONE: America/Chicago
       N8N_METRICS: "true"
       N8N_LOG_LEVEL: info
+      # n8n blocks $env access inside node expressions by default (security
+      # default) — score-tracker workflows need it, see below
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       # score-tracker workflows (score-tracker/workflows/*.json) reference
       # these via $env.VAR_NAME — see score-tracker/README.md
       MY_CELL: ${MY_CELL}
