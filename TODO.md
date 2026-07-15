@@ -16,15 +16,23 @@
 
 ## Phase 3 — Remaining (2 items)
 
-- [x] **HAR MLS lead intake n8n workflow** — `n8n/har_lead_intake.json`, built 2026-07-13.
-      No public HAR/Matrix saved-search API exists (same reason Lone Wolf below
-      is blocked), so this watches Gmail for HAR/Matrix lead notification emails
-      and parses them instead. Duplicate-check bug fixed 2026-07-15 (the
-      `?email=` filter it relied on was silently ignored by the API, and the
-      node's isDuplicate logic read a field the API never returned — see git
-      log). **Still needed before this is live:** import the workflow into the
-      running n8n instance and configure the `Gmail — caresir.gonzales@kw.com`
-      OAuth2 credential it references (both manual, Kareesa only).
+- [x] **HAR MLS lead intake n8n workflow** — `n8n/har_lead_intake.json`, built 2026-07-13,
+      imported into the live n8n instance by Kareesa. No public HAR/Matrix
+      saved-search API exists (same reason Lone Wolf below is blocked), so this
+      watches Gmail for HAR/Matrix lead notification emails and parses them
+      instead. Two bugs fixed 2026-07-15:
+      1. Duplicate-check was broken both ways — the `?email=` filter it relied
+         on was silently ignored by the API, and the node's isDuplicate logic
+         read a field the API never returned.
+      2. Credential was pointed at `caresir.gonzales@kw.com`, which Kareesa
+         can't authorize (KW's managed Google Workspace blocks third-party
+         OAuth apps) — HAR/Matrix mail is forwarded to her personal Gmail
+         instead, so the trigger now uses the `Gmail - cham4547@gmail.com`
+         credential already connected for other workflows.
+      **Unverified:** whether forwarded copies still carry the original HAR/
+      Matrix sender address (the trigger's sender filter matches on that) —
+      depends on how the KW→personal forward was set up. Worth checking n8n's
+      execution log after a real HAR lead comes in to confirm it actually fires.
 - [ ] **Lone Wolf API read** — ⏳ still blocked, waiting on API access from Lone Wolf
 
 ---
