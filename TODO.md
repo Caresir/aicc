@@ -16,7 +16,15 @@
 
 ## Phase 3 — Remaining (2 items)
 
-- [ ] **HAR MLS lead intake n8n workflow** — auto-capture leads from saved searches → Supabase leads table
+- [x] **HAR MLS lead intake n8n workflow** — `n8n/har_lead_intake.json`, built 2026-07-13.
+      No public HAR/Matrix saved-search API exists (same reason Lone Wolf below
+      is blocked), so this watches Gmail for HAR/Matrix lead notification emails
+      and parses them instead. Duplicate-check bug fixed 2026-07-15 (the
+      `?email=` filter it relied on was silently ignored by the API, and the
+      node's isDuplicate logic read a field the API never returned — see git
+      log). **Still needed before this is live:** import the workflow into the
+      running n8n instance and configure the `Gmail — caresir.gonzales@kw.com`
+      OAuth2 credential it references (both manual, Kareesa only).
 - [ ] **Lone Wolf API read** — ⏳ still blocked, waiting on API access from Lone Wolf
 
 ---
