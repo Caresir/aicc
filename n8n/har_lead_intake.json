@@ -105,7 +105,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const existing = $input.first().json;\n// API returns { count: N, leads: [...] }\nconst isDuplicate = (existing.count || 0) > 0;\nreturn { json: { ...($('Parse Lead Data').first().json), isDuplicate } };"
+        "jsCode": "const existing = $input.first().json;\n// GET /api/leads?email=... returns a bare array of matching leads\nconst matches = Array.isArray(existing) ? existing : [];\nconst isDuplicate = matches.length > 0;\nreturn { json: { ...($('Parse Lead Data').first().json), isDuplicate } };"
       },
       "id": "har-007",
       "name": "Tag Duplicate Flag",

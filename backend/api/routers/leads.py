@@ -56,12 +56,18 @@ class LeadUpdate(BaseModel):
 # ── CRUD ───────────────────────────────────────────────────────────────────────
 
 @router.get("")
-def list_leads(status: Optional[str] = None, lead_type: Optional[str] = None):
+def list_leads(
+    status: Optional[str] = None,
+    lead_type: Optional[str] = None,
+    email: Optional[str] = None,
+):
     q = _db().table("leads").select("*").order("created_at", desc=True)
     if status:
         q = q.eq("status", status)
     if lead_type:
         q = q.eq("lead_type", lead_type)
+    if email:
+        q = q.eq("email", email)
     return q.execute().data
 
 
