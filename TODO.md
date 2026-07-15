@@ -39,15 +39,29 @@
 
 ## Phase 4 — GymnastDiva Content Engine (next phase)
 
-- [ ] Content queue table in Supabase
-- [ ] Meet schedule Jan–May 2027 synced from Google Calendar
-- [ ] Content Director Agent fully activated (scaffolded, needs system prompt + captions wired)
-- [ ] Caption & hashtag generation for Iyah's content
-- [ ] Caption review queue in dashboard
-- [ ] Calendly webhook → booking confirmation workflow
-- [ ] Instagram Graph API integration
-- [ ] TikTok API integration
-- [ ] YouTube Data API integration
+**Corrected 2026-07-15 — most of this phase was actually already done, this
+list was stale.** Verified live against the running `aicc_api` + cloud
+Supabase, not just by reading code:
+
+- [x] Content queue table in Supabase — `content_queue`, confirmed live (empty, functional)
+- [x] Meet schedule Jan–May 2027 — `meets` table has all 12 real 2027 meets loaded and live.
+      Entered manually via `add_meet`, not auto-synced from Google Calendar as
+      originally envisioned — but the actual data goal is met either way.
+- [x] Content Director Agent fully activated — `backend/agents/content_director_agent.py`
+      (319 lines: full system prompt, caption generation, queue CRUD, meet CRUD,
+      weekly plan, chat), wired into `backend/api/routers/content.py` and
+      `agents.py`. Not scaffolded, not missing a system prompt.
+- [x] Caption & hashtag generation for Iyah's content — `generate_captions()`, live
+- [x] Caption review queue in dashboard — `frontend/src/pages/GymnastDiva.tsx`
+      (577 lines): draft → approved → published flow with copy/approve/archive
+      buttons, wired to the real queue via React Query.
+- [ ] **Calendly webhook → booking confirmation workflow** — still genuinely open.
+      System prompt references "private lessons available via Calendly" but no
+      webhook/workflow exists anywhere in the repo to auto-confirm bookings.
+- [ ] Instagram Graph API integration — still open. Current flow is draft →
+      Kareesa copies caption → posts manually; no auto-publish to any platform.
+- [ ] TikTok API integration — still open, same manual-posting gap as above.
+- [ ] YouTube Data API integration — still open, same manual-posting gap as above.
 
 ---
 
