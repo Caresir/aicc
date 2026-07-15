@@ -1,0 +1,78 @@
+{
+  "name": "ManyChat DM Router",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "manychat-dm-router",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "mcdr-0001-4000-8000-000000000001",
+      "name": "ManyChat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "manychat-dm-router"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ManyChat's External Request action posts a JSON body here.\n// Field names below match a typical ManyChat External Request setup;\n// adjust the body.<field> names if you name your ManyChat fields differently.\nconst body = $json.body || {};\n\nreturn [{\n  json: {\n    keyword: (body.keyword || '').toString().trim(),\n    trigger: body.trigger || 'dm',\n    platform: body.platform || 'instagram',\n    name: body.name || body.full_name || '',\n    contact: body.contact || body.email || body.phone || '',\n    post_id: body.post_id || '',\n    manychat_subscriber_id: body.subscriber_id || body.manychat_subscriber_id || ''\n  }\n}];"
+      },
+      "id": "mcdr-0002-4000-8000-000000000002",
+      "name": "Normalize ManyChat Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/real-estate/dm-lead",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "mcdr-0003-4000-8000-000000000003",
+      "name": "Route DM Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "mcdr-0004-4000-8000-000000000004",
+      "name": "Respond to ManyChat",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 300]
+    }
+  ],
+
+  "connections": {
+    "ManyChat Webhook": {
+      "main": [[{ "node": "Normalize ManyChat Payload", "type": "main", "index": 0 }]]
+    },
+    "Normalize ManyChat Payload": {
+      "main": [[{ "node": "Route DM Lead", "type": "main", "index": 0 }]]
+    },
+    "Route DM Lead": {
+      "main": [[{ "node": "Respond to ManyChat", "type": "main", "index": 0 }]]
+    }
+  },
+
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "tags": ["real-estate", "leads", "social", "manychat"],
+  "notes": "Receives a DM/comment-keyword event from ManyChat and routes it through the AICC lead pipeline. This workflow did NOT exist before this spec rollout — there was previously no connection at all between ManyChat and AICC.\n\n━━━━━━━━━━━━━━━━━━━━━━\nONE-TIME SETUP (read before importing)\n━━━━━━━━━━━━━━━━━━━━━━\n\nSTEP 1 — Prerequisite: run the sequence_track migration first\n  This workflow calls a backend endpoint that depends on the leads.sequence_track\n  column (backend/memory/migrations/004_sequence_track.sql). Run that SQL in\n  Supabase Studio before using this workflow, or every lead it creates will\n  default to no dedup protection.\n\nSTEP 2 — Import this workflow and copy its webhook URL\n  After import, open the 'ManyChat Webhook' node and copy its Production URL\n  (looks like https://YOUR_N8N_HOST/webhook/manychat-dm-router).\n\nSTEP 3 — In ManyChat, add an External Request action to each keyword flow\n  For every keyword trigger you build in ManyChat (CLASS, HOME, SELL, LAND,\n  PEARLAND, ROSHARON, IOWA COLONY, MANVEL, or a comment-trigger flow for\n  ADDRESS), add an 'External Request' action that POSTs JSON to the webhook\n  URL from Step 2, with a body like:\n    { \"keyword\": \"CLASS\", \"trigger\": \"dm\", \"platform\": \"instagram\",\n      \"name\": \"{{full_name}}\", \"contact\": \"{{email or phone if collected}}\",\n      \"post_id\": \"{{post_id}}\", \"subscriber_id\": \"{{subscriber_id}}\" }\n  Use ManyChat's own merge tags for name/contact/post_id/subscriber_id.\n\nSTEP 4 — Map the response back into ManyChat (optional but recommended)\n  This workflow's response includes lead_magnet_url, routing_status, and\n  routing_note. ManyChat's External Request action can map those JSON fields\n  into custom user fields, so your next message can insert the guide link\n  dynamically instead of hardcoding it per keyword.\n\nSTEP 5 — Check specs/aicc-social-spec.config.json before going live\n  Several keywords (HOME, SELL, LAND, and all four neighborhood keywords) are\n  marked \"status\": \"needs_input\" because no delivery URL for that lead magnet\n  exists anywhere in this repo yet. Those DMs will still create and route the\n  lead correctly, but lead_magnet_url will come back null, so ManyChat won't\n  have a link to send. Add the missing URLs to that file (or tell AICC what\n  they are) before turning those specific keyword flows on.\n\nSTEP 6 — Test and activate\n  Send a test DM/comment with a real keyword, confirm a lead appears on the\n  Leads page with source 'social' and the right lead_type, then toggle Active ON."
+}

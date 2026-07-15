@@ -219,6 +219,7 @@ export interface Lead {
   budget_max?: number
   notes?: string
   last_contact_at?: string
+  sequence_track?: 'aicc' | 'smartplan' | 'none'
   created_at: string
 }
 

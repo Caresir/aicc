@@ -61,10 +61,11 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
             { "name": "anthropic-version", "value": "2023-06-01" },
             { "name": "content-type", "value": "application/json" }
           ]
@@ -78,7 +79,10 @@
       "name": "Call Claude — Parse Activities",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 420]
+      "position": [680, 420],
+      "credentials": {
+        "anthropicApi": { "name": "Anthropic account" }
+      }
     },
     {
       "parameters": {
@@ -116,11 +120,11 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/score_activities",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
             { "name": "Content-Type", "value": "application/json" },
             { "name": "Prefer", "value": "return=minimal" }
           ]
@@ -135,17 +139,20 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1340, 340],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpCustomAuth": { "name": "Supabase Cloud REST" }
+      }
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/get_weekly_score",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
@@ -158,7 +165,10 @@
       "name": "Get Weekly Score",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 340]
+      "position": [1560, 340],
+      "credentials": {
+        "httpCustomAuth": { "name": "Supabase Cloud REST" }
+      }
     },
     {
       "parameters": {

@@ -32,11 +32,11 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/get_weekly_score",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
@@ -49,17 +49,20 @@
       "name": "Get This Week Score",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 300]
+      "position": [680, 300],
+      "credentials": {
+        "httpCustomAuth": { "name": "Supabase Cloud REST" }
+      }
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/get_weekly_score",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
@@ -72,7 +75,10 @@
       "name": "Get Last Week Score",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 300]
+      "position": [900, 300],
+      "credentials": {
+        "httpCustomAuth": { "name": "Supabase Cloud REST" }
+      }
     },
     {
       "parameters": {
@@ -88,10 +94,11 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
             { "name": "anthropic-version", "value": "2023-06-01" },
             { "name": "content-type", "value": "application/json" }
           ]
@@ -105,7 +112,10 @@
       "name": "Call Claude — Generate Report Card",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1340, 300]
+      "position": [1340, 300],
+      "credentials": {
+        "anthropicApi": { "name": "Anthropic account" }
+      }
     },
     {
       "parameters": {

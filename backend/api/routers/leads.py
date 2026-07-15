@@ -36,6 +36,7 @@ class LeadCreate(BaseModel):
     notes: Optional[str] = None
     co_purchasers: Optional[list[dict[str, Any]]] = None
     property_criteria: Optional[dict[str, Any]] = None
+    sequence_track: Optional[str] = None  # 'aicc' (default), 'smartplan', or 'none'
 
 
 class LeadUpdate(BaseModel):
@@ -49,6 +50,7 @@ class LeadUpdate(BaseModel):
     co_purchasers: Optional[list[dict[str, Any]]] = None
     property_criteria: Optional[dict[str, Any]] = None
     last_contact_at: Optional[str] = None
+    sequence_track: Optional[str] = None  # 'aicc', 'smartplan', or 'none'
 
 
 # ── CRUD ───────────────────────────────────────────────────────────────────────
@@ -127,8 +129,22 @@ def draft_follow_up(lead_id: str, step: int = 3, channel: str = "text"):
 
 @router.post("/{lead_id}/sequence")
 def generate_sequence(lead_id: str):
-    """Generate and save a full 6-step follow-up sequence for this lead."""
+    """Generate and save a full 6-step follow-up sequence for this lead.
+
+    Refuses to run for leads whose sequence_track is 'smartplan' — those leads
+    are owned by a KW Command SmartPlan and must not also get AICC-native
+    outreach (see the Sharon Traylor dual-track incident in REAL_ESTATE_ASSETS.md).
+    """
     lead = get_lead(lead_id)
+    if lead.get("sequence_track") == "smartplan":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This lead is marked sequence_track='smartplan' — a KW Command SmartPlan "
+                "owns their follow-up. Generating an AICC sequence would duplicate outreach. "
+                "Change sequence_track on the lead first if that's no longer correct."
+            ),
+        )
     agent = RealEstateAgent()
     steps = agent.generate_sequence(lead)
     agent.save_sequence(lead_id, steps)

@@ -1,0 +1,157 @@
+{
+  "version": "1.0",
+  "source_spec": "aicc-social-spec.md",
+  "note": "Machine-readable companion to aicc-social-spec.md. Generated from spec sections 2 and 7. Do not hand-edit the pillar list or routing table separately from the spec, edit the spec and regenerate this file so the two never drift.",
+
+  "pillars": [
+    {
+      "id": "local_expert",
+      "name": "Local Expert & Community",
+      "baseline_mix": 25,
+      "role": "discovery",
+      "platform_emphasis": { "tiktok": "H", "instagram": "M", "facebook": "M" }
+    },
+    {
+      "id": "education",
+      "name": "Education",
+      "baseline_mix": 25,
+      "role": "trust",
+      "platform_emphasis": { "tiktok": "H", "instagram": "M", "facebook": "M" }
+    },
+    {
+      "id": "listings",
+      "name": "Listings & Property",
+      "baseline_mix": 20,
+      "role": "proof",
+      "platform_emphasis": { "tiktok": "M", "instagram": "M", "facebook": "M" }
+    },
+    {
+      "id": "client_stories",
+      "name": "Client Stories",
+      "baseline_mix": 15,
+      "role": "social_proof",
+      "platform_emphasis": { "tiktok": "L", "instagram": "H", "facebook": "H" }
+    },
+    {
+      "id": "personal_brand",
+      "name": "Personal Brand & Lifestyle",
+      "baseline_mix": 10,
+      "role": "relationship",
+      "platform_emphasis": { "tiktok": "M", "instagram": "H", "facebook": "M" }
+    },
+    {
+      "id": "realtor_reality",
+      "name": "Realtor Reality & Behind-the-Scenes",
+      "baseline_mix": 5,
+      "role": "authenticity",
+      "platform_emphasis": { "tiktok": "M", "instagram": "L", "facebook": "M" }
+    }
+  ],
+
+  "dm_routing": [
+    {
+      "keyword": "HOUSTON",
+      "trigger": "comment",
+      "intent": "buyer",
+      "lead_type": "buyer",
+      "lead_magnet": "Houston Relocation Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=1AaiTV47tHox5MzIPaE5quPXyYIn75G61",
+      "status": "live",
+      "note": "Keyword trigger already built and live in ManyChat on Instagram (pre-existing, not part of this spec rollout). Delivers into the Calendly Home Goals Call per the existing funnel. URL switched 2026-07-14 to the new Drive-hosted copy per Kareesa: it's the better version of the guide. IMPORTANT: this config change does not update ManyChat itself, the live 'Comment HOUSTON' flow is built inside ManyChat's own UI and still points at the old lockedinhomes.com PDF until Kareesa updates that asset link there directly."
+    },
+    {
+      "keyword": "CLASS",
+      "trigger": "dm",
+      "intent": "buyer",
+      "lead_type": "buyer",
+      "lead_magnet": "Home Buyer's Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=18a2iHoKYDGjF3rYSUtu4Bn68Ze_nH6ZC",
+      "status": "needs_build",
+      "note": "URL confirmed 2026-07-14 (Kareesa). Asset ready. Still needs the ManyChat keyword flow + External Request action built (see n8n/manychat_dm_router.json setup notes, step 3)."
+    },
+    {
+      "keyword": "HOME",
+      "trigger": "dm",
+      "intent": "buyer",
+      "lead_type": "buyer",
+      "lead_magnet": "Home Buyer's Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=18a2iHoKYDGjF3rYSUtu4Bn68Ze_nH6ZC",
+      "status": "needs_build",
+      "note": "URL confirmed 2026-07-14 (Kareesa). Same asset as CLASS. Asset ready. Still needs the ManyChat keyword flow built."
+    },
+    {
+      "keyword": "SELL",
+      "trigger": "dm",
+      "intent": "seller",
+      "lead_type": "seller",
+      "lead_magnet": "Home Seller's Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=1dSuTe0JZunyiUFi_IdYMIt-twOZ-HI8-",
+      "status": "needs_build",
+      "note": "URL confirmed 2026-07-14 (Kareesa). Asset ready. Still needs the ManyChat keyword flow built."
+    },
+    {
+      "keyword": "LAND",
+      "trigger": "dm",
+      "intent": "land",
+      "lead_type": "land",
+      "lead_magnet": "Complete Land Buyer's Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=1VcTSQpPGeuh5JK7LjH8VZXtRtAPuHfSf",
+      "status": "needs_build",
+      "note": "URL confirmed 2026-07-14 (Kareesa) — now hosted and public, superseding the 'not yet in Canva' note in REAL_ESTATE_ASSETS.md. Asset ready. Still needs the ManyChat keyword flow built."
+    },
+    {
+      "keyword": "PEARLAND",
+      "trigger": "dm",
+      "intent": "local",
+      "lead_type": "buyer",
+      "neighborhood": "Pearland",
+      "lead_magnet": "Houston Relocation Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=1AaiTV47tHox5MzIPaE5quPXyYIn75G61",
+      "status": "needs_build",
+      "note": "Intentionally shares the Relocation Guide (it has a dedicated Pearland page) rather than a separate asset, per Kareesa 2026-07-14. Same URL as HOUSTON. lead_type defaulted to buyer, override per-lead if a given inquiry is seller-intent."
+    },
+    {
+      "keyword": "ROSHARON",
+      "trigger": "dm",
+      "intent": "local",
+      "lead_type": "buyer",
+      "neighborhood": "Rosharon",
+      "lead_magnet": "Houston Relocation Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=1AaiTV47tHox5MzIPaE5quPXyYIn75G61",
+      "status": "needs_build",
+      "note": "Intentionally shares the Relocation Guide (it has a dedicated Rosharon page) rather than a separate asset, per Kareesa 2026-07-14. Same URL as HOUSTON."
+    },
+    {
+      "keyword": "IOWA COLONY",
+      "trigger": "dm",
+      "intent": "local",
+      "lead_type": "buyer",
+      "neighborhood": "Iowa Colony",
+      "lead_magnet": "Houston Relocation Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=1AaiTV47tHox5MzIPaE5quPXyYIn75G61",
+      "status": "needs_build",
+      "note": "Intentionally shares the Relocation Guide (it has a dedicated Iowa Colony page) rather than a separate asset, per Kareesa 2026-07-14. Same URL as HOUSTON."
+    },
+    {
+      "keyword": "MANVEL",
+      "trigger": "dm",
+      "intent": "local",
+      "lead_type": "buyer",
+      "neighborhood": "Manvel",
+      "lead_magnet": "Houston Relocation Guide",
+      "lead_magnet_url": "https://drive.google.com/uc?export=download&id=1AaiTV47tHox5MzIPaE5quPXyYIn75G61",
+      "status": "needs_build",
+      "note": "Intentionally shares the Relocation Guide (it has a dedicated Manvel page) rather than a separate asset, per Kareesa 2026-07-14. Same URL as HOUSTON."
+    },
+    {
+      "keyword": "ADDRESS",
+      "trigger": "comment",
+      "intent": "seller",
+      "lead_type": "seller",
+      "lead_magnet": "Home valuation / CMA",
+      "lead_magnet_url": null,
+      "status": "needs_input",
+      "note": "No automated valuation/CMA delivery mechanism exists in this repo. This one likely needs a manual step (Kareesa runs the CMA) rather than an auto-delivered file."
+    }
+  ]
+}

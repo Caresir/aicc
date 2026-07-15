@@ -7,6 +7,7 @@ from typing import Any
 from loguru import logger
 
 from agents.base_agent import BaseAgent
+from agents.context.real_estate_content_context import SOCIAL_SPEC_TEXT
 
 SYSTEM_PROMPT = """You are the Real Estate Assistant for Kareesa Gonzales, a licensed Texas \
 real estate agent with Keller Williams Preferred in Pearland, TX.
@@ -213,42 +214,50 @@ class RealEstateAgent(BaseAgent):
                 "Help them get top dollar or avoid a common mistake.",
             "personal_brand": "Share a personal story or moment that connects your teaching background "
                 "to real estate. Show who Kareesa is as a person, not just an agent. "
-                "Brand: 'Locked In with Kareesa' — Class is in session, let's get you home.",
+                "Brand: 'Locked In with Kareesa'. Class is in session, let's get you home.",
             "community": "Highlight something great about Pearland, TX or the surrounding Houston suburbs "
                 "(Katy, Sugar Land, The Woodlands, Cypress). Make people feel proud to live there.",
             "testimonial_ask": "Create a warm, non-awkward post inviting past clients or community "
                 "members to share their experience working with Kareesa.",
             "call_to_action": "Direct post inviting people who are thinking about buying or selling "
                 "to reach out. Warm and low-pressure. DM or link in bio.",
-            "land_education": "Educate buyers about purchasing land or acreage in Texas — "
+            "land_education": "Educate buyers about purchasing land or acreage in Texas: "
                 "what to look for, questions to ask, common mistakes to avoid.",
         }
 
         platform_cta = {
             "instagram": "End with a call to action directing people to the link in bio to book a free Home Goals Call.",
             "facebook": "End with a call to action: book a free Home Goals Call at https://calendly.com/coachcaresir/homegoalscall",
-            "tiktok": "End with: book your free Home Goals Call — link in bio 🔑",
+            "tiktok": "End with: book your free Home Goals Call, link in bio 🔑",
             "linkedin": "End with a call to action inviting people to book a free Home Goals Call at https://calendly.com/coachcaresir/homegoalscall",
         }
 
+        spec_block = (
+            f"CANONICAL BRAND + PILLAR SPEC (specs/aicc-social-spec.md, wins on any conflict "
+            f"with the notes below):\n{SOCIAL_SPEC_TEXT}\n\n"
+            if SOCIAL_SPEC_TEXT else ""
+        )
+
         prompt = (
             f"Write a real estate social media post for Kareesa Gonzales.\n\n"
+            f"{spec_block}"
             f"PLATFORM: {platform}\n"
             f"FORMAT GUIDE: {platform_guides.get(platform, 'Engaging social post.')}\n\n"
             f"CONTENT TYPE: {content_type}\n"
             f"CONTENT GUIDE: {content_type_guides.get(content_type, content_type)}\n\n"
-            f"ADDITIONAL CONTEXT FROM KAREESA: {context or 'None provided — use your best judgment.'}\n\n"
+            f"ADDITIONAL CONTEXT FROM KAREESA: {context or 'None provided, use your best judgment.'}\n\n"
             "BRAND RULES:\n"
             "- Brand: Locked In with Kareesa | KW Preferred Pearland TX\n"
-            "- Tagline: 'Class is in session — let's get you home.'\n"
-            "- Former teacher of 15 years in Houston-area schools — use this authentically\n"
+            "- Tagline: 'Class is in session, let's get you home'\n"
+            "- Former teacher of 15 years in Houston-area schools. Use this authentically\n"
             "- Warm, relatable, emoji-inclusive when appropriate\n"
-            "- NO hyphens or dashes anywhere in the post\n"
+            "- NO hyphens or em dashes used as connector punctuation anywhere in the post "
+            "(ordinary hyphenated compound words like 'move-in ready' are fine)\n"
             "- NO AI-sounding phrases (never say 'I hope this finds you', 'dive in', 'landscape')\n"
             "- Write like a real person who cares about the community\n"
             "- Never sound salesy or pushy\n\n"
             f"CALL TO ACTION: {platform_cta.get(platform, 'End with a soft call to action to book a free Home Goals Call.')}\n\n"
-            "Output the post text only — no labels, no explanation, just the post."
+            "Output the post text only: no labels, no explanation, just the post."
         )
 
         return self.think(prompt)

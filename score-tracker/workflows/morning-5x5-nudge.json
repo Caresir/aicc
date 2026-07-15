@@ -22,13 +22,8 @@
       "parameters": {
         "method": "GET",
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/fivexfive_streak?select=days,streak_end&order=streak_end.desc&limit=1",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
         "options": {}
       },
       "id": "score-am-002",
@@ -36,7 +31,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [460, 300],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpCustomAuth": { "name": "Supabase Cloud REST" }
+      }
     },
     {
       "parameters": {

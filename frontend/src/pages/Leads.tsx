@@ -110,11 +110,23 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+const SEQUENCE_TRACK_LABELS: Record<string, string> = {
+  aicc: 'AICC follow-up (default)',
+  smartplan: 'KW Command SmartPlan',
+  none: 'No automated outreach',
+}
+
 function LeadDrawer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   const [draft, setDraft] = useState<{ type: string; content: string } | null>(null)
   const [chatMessages, setChatMessages] = useState<AgentMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const queryClient = useQueryClient()
+
+  const trackMutation = useMutation({
+    mutationFn: (sequence_track: string) => api.leads.update(lead.id, { sequence_track: sequence_track as Lead['sequence_track'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  })
 
   const draftMutation = useMutation({
     mutationFn: (type: 'text' | 'email' | 'agreement') => {
@@ -220,6 +232,31 @@ function LeadDrawer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
             </p>
           </div>
         )}
+
+        {/* Sequence Track (dedup guard) */}
+        <div className="border-t border-stone-800 pt-4">
+          <p className="text-stone-500 text-xs uppercase tracking-wide mb-1">Follow-Up Owner</p>
+          <p className="text-stone-500 text-xs mb-2">
+            Only one system should ever message this lead. Set this to "KW Command SmartPlan"
+            the moment you enroll them in a SmartPlan in agent.kw.com &mdash; that stops AICC's
+            automated follow-up for them.
+          </p>
+          <select
+            value={lead.sequence_track ?? 'aicc'}
+            onChange={e => trackMutation.mutate(e.target.value)}
+            disabled={trackMutation.isPending}
+            className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm text-stone-100 focus:outline-none focus:border-emerald-600"
+          >
+            {Object.entries(SEQUENCE_TRACK_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          {lead.sequence_track === 'smartplan' && (
+            <p className="text-amber-500 text-xs mt-2">
+              AICC's hourly follow-up reminder is skipping this lead.
+            </p>
+          )}
+        </div>
 
         {/* Quick Actions */}
         <div className="border-t border-stone-800 pt-4">
@@ -398,6 +435,11 @@ export default function Leads() {
                       <span className={cn('badge', STATUS_COLORS[lead.status] ?? 'bg-stone-700 text-stone-400')}>
                         {lead.status.replace('_', ' ')}
                       </span>
+                      {lead.sequence_track === 'smartplan' && (
+                        <span className="badge bg-amber-900/40 text-amber-400 ml-1" title="Follow-up owned by a KW Command SmartPlan">
+                          SmartPlan
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-stone-400">
                       {lead.referrer ? `Ref: ${lead.referrer}` : (lead.source ?? '—')}

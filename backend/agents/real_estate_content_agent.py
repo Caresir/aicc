@@ -32,12 +32,34 @@ from agents.context.real_estate_content_context import (
     PALETTE,
     PLATFORM_RULES,
     RESIDENT_INSIGHTS,
+    SOCIAL_SPEC_TEXT,
     VOICE,
 )
 
 # ── System Prompt ──────────────────────────────────────────────────────────────
+# SOCIAL_SPEC_TEXT is loaded from specs/aicc-social-spec.md — that is the one
+# file Kareesa edits to change brand voice, content pillars, hooks, or DM
+# routing. Everything below it only adds operational detail the spec doesn't
+# cover (TREC/compliance rules, filming logistics, KWP SCORE tracking).
 
-_SYSTEM_PROMPT = f"""You are the Real Estate Content Agent for Locked In with Kareesa.
+_SPEC_HEADER = (
+    (SOCIAL_SPEC_TEXT + "\n\n") if SOCIAL_SPEC_TEXT else
+    "[WARNING: specs/aicc-social-spec.md was not found — the canonical brand/"
+    "pillar/DM-routing spec is missing. Falling back to the built-in prompt "
+    "below only.]\n\n"
+)
+
+_SYSTEM_PROMPT = f"""{_SPEC_HEADER}\
+═══════════════════════════════════════════════════════════════════════════
+The spec above (specs/aicc-social-spec.md) is the canonical brand, content
+pillar, and DM-routing source of truth for Locked In with Kareesa content.
+On brand voice, content pillars, hooks, hashtags, and copy rules, the spec
+above always wins. Everything below adds operational detail the spec does
+not cover: TREC/KW compliance rules, filming logistics, and KWP SCORE
+competition tracking.
+═══════════════════════════════════════════════════════════════════════════
+
+You are the Real Estate Content Agent for Locked In with Kareesa.
 
 AGENT: Kareesa Gonzales | BROKERAGE: Keller Williams Preferred
 MARKETS: Iowa Colony, Rosharon, Manvel, Pearland (Highway 288 corridor south of Houston)
@@ -48,18 +70,18 @@ SIGNATURE SIGNOFF: {BRAND["signature_signoff"]}
 {chr(10).join(f"- {d}" for d in BRAND["differentiators"])}
 
 She currently lives in Sierra Vista, Rosharon (previously Sterling Lakes).
-Her address says Rosharon but the city is Iowa Colony — she teaches this quirk.
+Her address says Rosharon but the city is Iowa Colony. She teaches this quirk.
 The Manvel H-E-B is now open and is HER closer grocery store. Use this as authentic growth proof.
 
 ═══ THE CONTENT FUNNEL ════════════════════════════════════════════════════════
 Every piece of content feeds this funnel:
 Video/post → "Comment HOUSTON" → ManyChat auto-DM → Houston Relocation Guide
-(https://lockedinhomes.com/houston-relocation-guide.pdf) → Calendly Home Goals Call
+(https://drive.google.com/uc?export=download&id=1AaiTV47tHox5MzIPaE5quPXyYIn75G61) → Calendly Home Goals Call
 (https://calendly.com/coachcaresir/homegoalscall)
 
 Standard CTAs:
 - "Comment HOUSTON for my free Houston Relocation Guide"
-- "Book a free Home Goals Call — link in bio"
+- "Book a free Home Goals Call, link in bio"
 
 ═══ VOICE AND STYLE ═══════════════════════════════════════════════════════════
 Tone: {VOICE["tone"]}
@@ -98,7 +120,7 @@ For every batch of content you produce, state how many pieces are KWP-competitio
 
 ═══ CONTENT CALENDAR ══════════════════════════════════════════════════════════
 Short posts: Monday | Long-form: Thursday | One neighborhood per week
-Current neighborhood in filming: Rosharon (July 2026 — resident angle)
+Current neighborhood in filming: Rosharon (July 2026, resident angle)
 Next up: Iowa Colony (Meridiana focus) → Manvel (H-E-B growth story) → Pearland (established suburb)
 
 ═══ PLATFORM RULES ════════════════════════════════════════════════════════════
@@ -108,10 +130,11 @@ YouTube Shorts: searchable title under 70 chars, keyword-dense 2-4 sentence desc
 Facebook: 2-4 sentences, warm/family-friendly, 3-5 hashtags max.
 
 ═══ OUTPUT RULES ══════════════════════════════════════════════════════════════
-- Always produce DRAFTS only — Kareesa approves before posting
+- Always produce DRAFTS only. Kareesa approves before posting
 - Flag any compliance issue (price guarantee, flood zone, missing disclosure)
 - Include a "KWP-qualifying: YES/NO" note on each piece
 - Every piece must include one of the two standard CTAs
+- {COMPLIANCE["punctuation_rule"]}
 - End every response with: {BRAND["signature_signoff"]}
 """
 
@@ -170,6 +193,34 @@ class RealEstateContentAgent(BaseAgent):
             "funnel_CTA": FUNNEL["standard_CTAs"][0],
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
+
+    def save_to_queue(
+        self,
+        platform: str,
+        content_type: str,
+        title: str,
+        caption: str,
+        hashtags: list[str],
+        media_url: str = "",
+    ) -> dict:
+        """Save a real estate content draft to the shared content_queue table."""
+        row = {
+            "platform": platform,
+            "content_type": content_type,
+            "athlete_name": None,
+            "title": title,
+            "caption": caption,
+            "hashtags": hashtags,
+            "media_url": media_url or None,
+            "status": "draft",
+        }
+        try:
+            result = self._db.table("content_queue").insert(row).execute()
+            logger.info(f"[re_content] Saved draft for {platform}: {title}")
+            return result.data[0] if result.data else row
+        except Exception as exc:
+            logger.error(f"[re_content] save_to_queue failed: {exc}")
+            return {"error": str(exc)}
 
     # ── Weekly Content Plan ───────────────────────────────────────────────────
 
@@ -288,7 +339,9 @@ class RealEstateContentAgent(BaseAgent):
             "5. School info stated as fact without 'verify with district' disclaimer\n"
             "6. HOA amenity descriptions that imply public access\n"
             "7. Any AI-sounding or salesy language that doesn't sound like Kareesa\n"
-            "8. Missing CTA (should have Comment HOUSTON or Calendly link reference)\n\n"
+            "8. Missing CTA (should have Comment HOUSTON or Calendly link reference)\n"
+            "9. Any hyphen or em dash used as connector punctuation joining two clauses "
+            "or phrases (ordinary hyphenated compound words like 'move-in ready' are fine)\n\n"
             "Output JSON with keys: issues (list of strings), clean (bool), revised_draft (string with issues corrected).\n"
             "Output ONLY valid JSON."
         )
@@ -319,7 +372,7 @@ class RealEstateContentAgent(BaseAgent):
             f"SIGNATURE SHOTS AT THIS LOCATION:\n"
             + "\n".join(f"- {s}" for s in location.get("signature_shots", [])) + "\n\n"
             "REQUIREMENTS:\n"
-            "- Write exactly what Kareesa says on camera — first person, conversational\n"
+            "- Write exactly what Kareesa says on camera. First person, conversational\n"
             "- Include one teacher-style moment (pop quiz, lesson, homework CTA)\n"
             "- End the intro with the subject hook; end the outro with 'Comment HOUSTON'\n"
             "- No AI-sounding phrases. No hyphens or dashes.\n"

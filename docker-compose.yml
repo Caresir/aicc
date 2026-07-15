@@ -271,6 +271,7 @@ services:
       KAREESA_PHONE: ${KAREESA_PHONE}
     volumes:
       - ./backend:/app
+      - ./specs:/app/specs
     depends_on:
       postgres:
         condition: service_healthy

@@ -3,6 +3,44 @@ Real estate content system context for Locked In with Kareesa.
 All structured knowledge the RE Content Agent loads at startup.
 Updated: July 2026
 """
+from pathlib import Path
+
+
+def load_social_spec_text() -> str:
+    """Read the canonical brand/pillar/DM-routing spec from specs/aicc-social-spec.md.
+
+    Walks up from this file to find the repo root, same pattern base_agent.py
+    uses to find .env. This is the single file Kareesa edits to change brand
+    voice, content pillars, hooks, or DM routing — every agent that generates
+    real estate social copy loads it fresh at import time.
+    """
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / "specs" / "aicc-social-spec.md"
+        if candidate.exists():
+            return candidate.read_text(encoding="utf-8")
+    return ""
+
+
+SOCIAL_SPEC_TEXT = load_social_spec_text()
+
+
+def load_dm_routing_config() -> dict:
+    """Read the machine-readable pillar/DM-routing companion to the spec.
+
+    specs/aicc-social-spec.config.json holds the pillar list and the section 7
+    DM-keyword-to-lead-magnet-to-sequence table in a form code can look up
+    directly, instead of parsing them out of the markdown spec at runtime.
+    """
+    import json
+
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / "specs" / "aicc-social-spec.config.json"
+        if candidate.exists():
+            return json.loads(candidate.read_text(encoding="utf-8"))
+    return {"pillars": [], "dm_routing": []}
+
+
+DM_ROUTING_CONFIG = load_dm_routing_config()
 
 # ── BRAND IDENTITY ─────────────────────────────────────────────────────────────
 
@@ -14,7 +52,7 @@ BRAND = {
     "corridor": "Highway 288 corridor south of Houston",
     "handle": "@LockedInWithKareesa",
     "signature_signoff": "Let's get you Locked In 🔐",
-    "tagline": "Class is in session — let's get you home.",
+    "tagline": "Class is in session, let's get you home",
     "differentiators": [
         "Former teacher with 15 years Houston-area classroom experience",
         "Actual resident — lives in Sierra Vista, Rosharon (formerly Sterling Lakes)",
@@ -55,7 +93,7 @@ FUNNEL = {
     "trigger": "ManyChat auto-DM (tested and live on Instagram)",
     "lead_magnet": {
         "name": "Houston Relocation Guide",
-        "url": "https://lockedinhomes.com/houston-relocation-guide.pdf",
+        "url": "https://drive.google.com/uc?export=download&id=1AaiTV47tHox5MzIPaE5quPXyYIn75G61",
     },
     "conversion_step": {
         "name": "Home Goals Call",
@@ -65,7 +103,7 @@ FUNNEL = {
     "website": "https://lockedinhomes.com",
     "standard_CTAs": [
         "Comment HOUSTON for my free Houston Relocation Guide",
-        "Book a free Home Goals Call — link in bio",
+        "Book a free Home Goals Call, link in bio",
     ],
     "flow": "Video/post → 'Comment HOUSTON' → ManyChat DM → Relocation Guide PDF → Calendly booking",
 }
@@ -83,14 +121,14 @@ CONTENT_CALENDAR = {
         {
             "order": 1,
             "neighborhood": "Rosharon",
-            "angle": "Resident perspective — she lives here now",
+            "angle": "Resident perspective. She lives here now",
             "status": "filming now (July 2026)",
             "communities": ["Sierra Vista", "Sterling Lakes"],
             "unique_hooks": [
-                "I actually LIVE here — insider view",
+                "I actually LIVE here. Insider view",
                 "Rural acreage side vs master-planned side contrast",
                 "Land-buying checklist segment: mineral rights, easements, septic, USDA loans",
-                "Address says Rosharon but it's Iowa Colony — teach the quirk",
+                "Address says Rosharon but it's Iowa Colony. Teach the quirk",
             ],
         },
         {
@@ -109,11 +147,11 @@ CONTENT_CALENDAR = {
         {
             "order": 3,
             "neighborhood": "Manvel",
-            "angle": "Growth story — H-E-B opened, more coming",
+            "angle": "Growth story. H-E-B opened, more coming",
             "status": "queued",
             "communities": ["Pomona", "Rodeo Palms", "Del Bello Lakes"],
             "unique_hooks": [
-                "H-E-B is NOW OPEN — Kareesa's closer grocery store (authentic proof)",
+                "H-E-B is NOW OPEN. Kareesa's closer grocery store (authentic proof)",
                 "Teacher line: 'Pop quiz: what does a new H-E-B tell you about a town?'",
                 "1M+ sq ft retail/dining planned (Target, Lowe's attached)",
                 "Pomona: Camp Pomona, treehouse/zipline park, fishing lake",
@@ -122,7 +160,7 @@ CONTENT_CALENDAR = {
         {
             "order": 4,
             "neighborhood": "Pearland",
-            "angle": "Established suburb — everything already built",
+            "angle": "Established suburb. Everything already built",
             "status": "queued",
             "communities": ["Shadow Creek Ranch"],
             "unique_hooks": [
@@ -179,6 +217,12 @@ COMPLIANCE = {
     ),
     "never_film_while_driving": "Passenger films, or use a mounted phone. Never drive and film.",
     "price_verify_note": "All [VERIFY] items in scripts must be confirmed morning-of before filming.",
+    "punctuation_rule": (
+        "NON-NEGOTIABLE: never use a hyphen or em dash as connector punctuation (to join "
+        "two clauses or phrases) in any generated copy. Use 'and', a period, or a comma "
+        "instead. Ordinary hyphenated compound words (move-in ready, first-time buyer) "
+        "are still allowed — only the dash-as-punctuation usage is banned."
+    ),
 }
 
 
@@ -203,7 +247,11 @@ VOICE = {
         "Emojis: use intentionally, not in every sentence",
     ],
     "donts": [
-        "No hyphens or dashes in captions",
+        "No hyphens or em dashes used as connector punctuation (joining two clauses or "
+        "phrases) anywhere in generated copy — e.g. write 'great location and close to "
+        "everything' instead of 'great location — close to everything', and use a period "
+        "or 'and' instead of a hyphen to join clauses. Standard hyphenated compound words "
+        "like 'move-in ready' are fine; it's dash-as-punctuation that's banned",
         "No AI-sounding phrases",
         "No guaranteed price statements",
         "No flood zone generalizations without FEMA verification",

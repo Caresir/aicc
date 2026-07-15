@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from agents.content_director_agent import ContentDirectorAgent
+from agents.real_estate_content_agent import RealEstateContentAgent
 
 router = APIRouter(prefix="/api/content", tags=["content"])
 
@@ -165,13 +166,17 @@ class NewVideoPayload(BaseModel):
     description: str = ""
     photos_url: str = ""
     duration_seconds: int = 0
+    neighborhood: str = ""                 # "re" videos only: Rosharon, Iowa Colony, Manvel, Pearland
 
 
 @router.post("/notify-new-video")
 def notify_new_video(body: NewVideoPayload):
     """Called by n8n when a new video lands in Google Photos.
-    Auto-generates captions for all 4 platforms and saves them as drafts."""
-    agent = ContentDirectorAgent()
+    Auto-generates captions for all 4 platforms and saves them as drafts.
+    Routes to the matching brand agent: real estate ("re") videos get the
+    Locked In with Kareesa voice, everything else gets GymnastDiva."""
+    is_real_estate = body.category == "re"
+    agent = RealEstateContentAgent() if is_real_estate else ContentDirectorAgent()
 
     parts = []
     if body.description:
@@ -182,11 +187,18 @@ def notify_new_video(body: NewVideoPayload):
         parts.append(f"Duration: {body.duration_seconds}s.")
     full_desc = " ".join(parts) or f"New {body.category} video: {body.title}"
 
-    result = agent.generate_captions(
-        description=full_desc,
-        content_type=body.content_type,
-        title=body.title,
-    )
+    if is_real_estate:
+        result = agent.generate_captions(
+            description=full_desc,
+            neighborhood=body.neighborhood or "Rosharon",
+            content_type=body.content_type,
+        )
+    else:
+        result = agent.generate_captions(
+            description=full_desc,
+            content_type=body.content_type,
+            title=body.title,
+        )
 
     caps = result.get("captions", {})
     hashtags = result.get("hashtags", [])
