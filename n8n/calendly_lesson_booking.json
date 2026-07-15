@@ -1,0 +1,211 @@
+{
+  "name": "Calendly Private Lesson Booking",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "calendly-lesson-booking",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "cal-001",
+      "name": "Calendly Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body || raw;\nconst payload = body.payload || {};\n\nconst name = payload.name || [payload.first_name, payload.last_name].filter(Boolean).join(' ') || 'there';\nconst firstName = payload.first_name || name.split(' ')[0] || 'there';\nconst email = (payload.email || '').trim();\n\n// Calendly's v2 webhook payload nests the booked event under\n// payload.scheduled_event. Fall back gracefully if that shape ever changes\n// (verify against a real test booking's execution log before trusting this).\nconst se = payload.scheduled_event || {};\nconst eventName = se.name || 'Private Lesson';\nconst startTimeRaw = se.start_time || '';\nconst locationInfo = se.location || {};\nconst location = locationInfo.location || locationInfo.type || 'Location to be confirmed, check with Kareesa';\n\nlet startTimeCentral = '';\nif (startTimeRaw) {\n  try {\n    startTimeCentral = new Date(startTimeRaw).toLocaleString('en-US', {\n      timeZone: 'America/Chicago',\n      weekday: 'long', month: 'long', day: 'numeric',\n      hour: 'numeric', minute: '2-digit', timeZoneName: 'short',\n    });\n  } catch (e) {\n    startTimeCentral = '';\n  }\n}\n\n// Phone: text_reminder_number if the invitee opted into SMS reminders,\n// otherwise scan custom questions for anything phone shaped.\nlet phone = payload.text_reminder_number || '';\nconst qa = Array.isArray(payload.questions_and_answers) ? payload.questions_and_answers : [];\nif (!phone) {\n  const phoneQA = qa.find(q => /phone|cell|mobile/i.test(q.question || ''));\n  if (phoneQA) phone = (phoneQA.answer || '').replace(/[^\\d+]/g, '');\n}\n\nconst notes = qa.map(q => `${q.question}: ${q.answer}`).join('\\n');\n\nreturn {\n  json: {\n    eventType: body.event || '',\n    status: payload.status || '',\n    firstName, name, email, phone,\n    eventName, startTimeRaw, startTimeCentral, location, notes,\n  }\n};"
+      },
+      "id": "cal-002",
+      "name": "Parse Booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-cal-001",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "invitee.created",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "cond-cal-002",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "active",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cal-003",
+      "name": "Is New Active Booking?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-cal-003",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cal-004",
+      "name": "Has Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email }}",
+        "subject": "Your Private Lesson with GymnastDiva Is Confirmed!",
+        "emailType": "text",
+        "message": "=Hi {{ $json.firstName }}! 🎉\n\nYour private lesson with Coach Kareesa is locked in for {{ $json.startTimeCentral || 'the time you selected, we will follow up to confirm' }}.\n\nLocation: {{ $json.location }}\n\nA few quick things to bring:\n• Comfortable athletic wear (leotard or fitted clothing, no jewelry)\n• Hair pulled back and secure\n• A water bottle\n• Positive energy and a big smile 😊\n\nPlease arrive about 10 minutes early to warm up. If anything changes, just reply to this email anytime.\n\nSee you soon!\nCoach Kareesa\nGymnastDiva",
+        "options": {}
+      },
+      "id": "cal-005",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1120, 140],
+      "credentials": {
+        "gmailOAuth2": { "name": "Gmail - cham4547@gmail.com" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-cal-004",
+              "leftValue": "={{ $('Parse Booking').first().json.phone }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cal-006",
+      "name": "Has Phone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 140]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $('Parse Booking').first().json.phone }}",
+        "message": "=Hi {{ $('Parse Booking').first().json.firstName }}! Your private lesson with Coach Kareesa is confirmed for {{ $('Parse Booking').first().json.startTimeCentral }}. See you soon! Reply STOP to opt out."
+      },
+      "id": "cal-007",
+      "name": "Send Confirmation SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1560, 60],
+      "credentials": {
+        "twilioApi": { "name": "Twilio account" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/tasks",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "request",
+              "value": "=New GymnastDiva private lesson booked: {{ $('Parse Booking').first().json.name }} ({{ $('Parse Booking').first().json.email }}{{ $('Parse Booking').first().json.phone ? ', ' + $('Parse Booking').first().json.phone : '' }}) for {{ $('Parse Booking').first().json.startTimeCentral || $('Parse Booking').first().json.startTimeRaw }}. Notes: {{ $('Parse Booking').first().json.notes || 'none' }}. Consider planning content around this session. Priority normal gymnastdiva"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cal-008",
+      "name": "Notify Kareesa Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 220]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $env.MY_CELL }}",
+        "message": "=New GymnastDiva lesson booked! {{ $('Parse Booking').first().json.name }} on {{ $('Parse Booking').first().json.startTimeCentral || $('Parse Booking').first().json.startTimeRaw }}."
+      },
+      "id": "cal-009",
+      "name": "Notify Kareesa SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [2000, 220],
+      "credentials": {
+        "twilioApi": { "name": "Twilio account" }
+      }
+    }
+  ],
+  "connections": {
+    "Calendly Webhook": {
+      "main": [[{ "node": "Parse Booking", "type": "main", "index": 0 }]]
+    },
+    "Parse Booking": {
+      "main": [[{ "node": "Is New Active Booking?", "type": "main", "index": 0 }]]
+    },
+    "Is New Active Booking?": {
+      "main": [
+        [{ "node": "Has Email?", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Has Email?": {
+      "main": [
+        [{ "node": "Send Confirmation Email", "type": "main", "index": 0 }, { "node": "Notify Kareesa Task", "type": "main", "index": 0 }, { "node": "Notify Kareesa SMS", "type": "main", "index": 0 }],
+        [{ "node": "Notify Kareesa Task", "type": "main", "index": 0 }, { "node": "Notify Kareesa SMS", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [[{ "node": "Has Phone?", "type": "main", "index": 0 }]]
+    },
+    "Has Phone?": {
+      "main": [
+        [{ "node": "Send Confirmation SMS", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "America/Chicago"
+  },
+  "tags": ["gymnastdiva", "calendly"],
+  "notes": "ONE-TIME SETUP (read before importing)\n\n1. Import this file into n8n (Workflows > Import from File).\n\n2. This workflow receives an inbound webhook from Calendly, so n8n must be reachable from the public internet at the time a booking happens (same requirement as the score-tracker's inbound Twilio SMS webhook, see score-tracker/README.md — use ngrok or a real public domain, not localhost).\n\n3. Register the Calendly webhook subscription by running scripts/register_calendly_webhook.py once (needs CALENDLY_API_KEY and CALENDLY_USER_URI already in .env, plus your public n8n URL). This tells Calendly to POST here whenever someone books.\n\n4. Confirm credentials 'Gmail - cham4547@gmail.com' and 'Twilio account' are already connected in n8n (both are reused from other workflows in this repo).\n\n5. UNVERIFIED: the Parse Booking node's field mapping is based on Calendly's documented v2 webhook schema but has not been tested against a real booking. After the first real (or Calendly's own test-ping) booking comes in, check this workflow's execution log in n8n and confirm firstName/email/startTimeCentral/location came through correctly — adjust the Parse Booking code if Calendly's actual payload differs.\n\n6. Run manually first with a test execution if possible, then toggle Active ON."
+}

@@ -55,9 +55,20 @@ Supabase, not just by reading code:
 - [x] Caption review queue in dashboard — `frontend/src/pages/GymnastDiva.tsx`
       (577 lines): draft → approved → published flow with copy/approve/archive
       buttons, wired to the real queue via React Query.
-- [ ] **Calendly webhook → booking confirmation workflow** — still genuinely open.
-      System prompt references "private lessons available via Calendly" but no
-      webhook/workflow exists anywhere in the repo to auto-confirm bookings.
+- [x] **Calendly webhook → booking confirmation workflow** — built 2026-07-15:
+      `n8n/calendly_lesson_booking.json` + `scripts/register_calendly_webhook.py`.
+      On a new booking: auto sends the client a confirmation email (and SMS if
+      a phone number is available) with lesson time/location/prep instructions,
+      and notifies Kareesa via task + SMS. **Not live yet, needs Kareesa:**
+      (1) n8n must be reachable from the public internet for Calendly to reach
+      it (ngrok or a real domain — same requirement as the score-tracker's
+      inbound Twilio SMS webhook), (2) run `register_calendly_webhook.py` once
+      to register the subscription with Calendly's API, (3) import the
+      workflow and confirm the `Gmail - cham4547@gmail.com` / `Twilio account`
+      credentials are connected. **Unverified:** the payload-parsing code is
+      written against Calendly's documented v2 webhook schema but has not
+      been tested against a real booking — check the first real execution's
+      log in n8n and adjust `Parse Booking` if fields don't match.
 - [ ] Instagram Graph API integration — still open. Current flow is draft →
       Kareesa copies caption → posts manually; no auto-publish to any platform.
 - [ ] TikTok API integration — still open, same manual-posting gap as above.

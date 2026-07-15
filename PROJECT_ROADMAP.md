@@ -264,8 +264,9 @@
 - [ ] Facebook Pages API: cross-post
 
 ### 4.4 Private Lessons (Calendly)
-- [ ] Calendly webhook → new booking → Content Director notified
-- [ ] Auto send confirmation + prep instructions to client
+- [x] Calendly webhook → new booking → Content Director notified — built 2026-07-15,
+      see TODO.md for setup steps still needed from Kareesa before it's live
+- [x] Auto send confirmation + prep instructions to client — email always, SMS if a phone is available
 
 ### 4.5 GymnastDiva Dashboard Page ✅
 - [x] Caption generator with platform tabs
